@@ -94,6 +94,7 @@ class RoomService {
             success: true,
             sessionToken: generateSessionToken(),
             hostAddress: room.hostAddress,
+            roomName: room.roomName, // Include full room name
             error: null,
           };
         },
@@ -200,22 +201,22 @@ class RoomService {
       this.sessionToken = response.sessionToken;
       this.hostAddress = response.hostAddress;
 
-      // Create room info
+      // Create room info - use roomName from response if available (full name from host)
       const roomInfo: RoomInfo = {
         roomId: room.roomId,
-        roomName: room.roomName,
+        roomName: response.roomName || room.roomName, // Use full name from host response
         hostId: room.hostId,
         hostName: room.hostName,
-        hostAddress: room.hostAddress,
+        hostAddress: response.hostAddress || room.hostAddress,
         wifiAvailable: room.wifiAvailable,
         peerCount: room.peerCount,
         createdAt: room.createdAt,
       };
 
       // If Wi-Fi is available, connect via LAN
-      if (room.wifiAvailable && room.hostAddress) {
+      if (room.wifiAvailable && roomInfo.hostAddress) {
         const connected = await networkService.connectToHost(
-          room.hostAddress,
+          roomInfo.hostAddress,
           this.sessionToken!,
           appStore.deviceId,
           appStore.deviceName
@@ -227,6 +228,9 @@ class RoomService {
             wifiAvailable: false,
             transportMode: TransportMode.BLE_ONLY,
           });
+        } else {
+          // After connecting via LAN, synchronize shared files from host
+          await this.syncSharedFilesFromHost();
         }
       }
 
@@ -252,7 +256,7 @@ class RoomService {
 
     if (this.currentRole === RoomRole.HOST) {
       // Notify all peers that room is closing
-      bleService.stopAdvertising();
+      await bleService.stopAdvertising();
       networkService.stopHttpServer();
     } else {
       // Disconnect from host
@@ -308,6 +312,35 @@ class RoomService {
       roomStore.unshareMyFile(fileId);
       roomStore.removeSharedFile(fileId);
     }
+  }
+
+  /**
+   * Sync shared files from host (guest mode)
+   * In production, this would be a WebSocket/HTTP request
+   * 
+   * For now, this is a placeholder. In a real implementation:
+   * 1. Guest requests file list from host via HTTP/WebSocket
+   * 2. Host responds with list of SharedFileMetadata from roomStore.sharedFiles
+   * 3. Guest adds these files to their roomStore.sharedFiles
+   */
+  private async syncSharedFilesFromHost(): Promise<void> {
+    const roomStore = useRoomStore.getState();
+    
+    if (this.currentRole !== RoomRole.GUEST || !this.hostAddress) {
+      return;
+    }
+
+    console.log('Syncing shared files from host...');
+    console.log('⚠️ File sync not yet implemented - files will be synchronized via WebSocket in production');
+    
+    // TODO: In production, make HTTP/WebSocket request to host:
+    // const response = await fetch(`http://${this.hostAddress}/api/files`);
+    // const files: SharedFileMetadata[] = await response.json();
+    // roomStore.updateSharedFiles(files);
+    
+    // For MVP: Files will be synchronized via WebSocket messages
+    // when a guest joins, the host should send INDEX_UPDATED message
+    // with all shared files. For now, this is a placeholder.
   }
 
   /**

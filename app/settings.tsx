@@ -18,6 +18,7 @@ import { router } from 'expo-router';
 import { Header } from '../src/components/Header';
 import { useAppStore } from '../src/stores/appStore';
 import { Colors, Spacing, BorderRadius, Typography } from '../src/constants/theme';
+import { runBleDiagnostics, formatDiagnostics } from '../src/utils/bleDiagnostics';
 
 export default function SettingsScreen() {
   const deviceName = useAppStore((state) => state.deviceName);
@@ -28,6 +29,7 @@ export default function SettingsScreen() {
 
   const [editingName, setEditingName] = useState(false);
   const [tempName, setTempName] = useState(deviceName);
+  const [diagnosticsRunning, setDiagnosticsRunning] = useState(false);
 
   const handleSaveName = () => {
     if (tempName.trim()) {
@@ -36,6 +38,20 @@ export default function SettingsScreen() {
       setTempName(deviceName);
     }
     setEditingName(false);
+  };
+
+  const handleRunDiagnostics = async () => {
+    setDiagnosticsRunning(true);
+    try {
+      const diagnostics = await runBleDiagnostics();
+      const formatted = formatDiagnostics(diagnostics);
+      Alert.alert('Diagnostica BLE', formatted);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      Alert.alert('Errore', `Errore durante la diagnostica: ${errorMessage}`);
+    } finally {
+      setDiagnosticsRunning(false);
+    }
   };
 
   const handleResetApp = () => {
@@ -193,6 +209,40 @@ export default function SettingsScreen() {
                 trackColor={{ false: Colors.border, true: Colors.primary + '80' }}
                 thumbColor={settings.keepScreenOnDuringTransfer ? Colors.primary : Colors.textMuted}
               />
+            </View>
+          </View>
+        </View>
+
+        {/* Diagnostics Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>DIAGNOSTICA</Text>
+
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.settingRow}
+              onPress={handleRunDiagnostics}
+              disabled={diagnosticsRunning}
+            >
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Esegui diagnostica BLE</Text>
+                <Text style={styles.settingDescription}>
+                  Verifica lo stato del Bluetooth e dei permessi
+                </Text>
+              </View>
+              <Text style={styles.settingArrow}>
+                {diagnosticsRunning ? '⏳' : '🔍'}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>⚠️ Nota BLE</Text>
+                <Text style={styles.settingDescription}>
+                  L'advertising BLE non è ancora completamente implementato. Le stanze potrebbero non essere visibili immediatamente.
+                </Text>
+              </View>
             </View>
           </View>
         </View>

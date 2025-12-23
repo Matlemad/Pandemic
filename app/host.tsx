@@ -17,16 +17,27 @@ import { router } from 'expo-router';
 import { Header } from '../src/components/Header';
 import { Button } from '../src/components/Button';
 import { useAppStore } from '../src/stores/appStore';
+import { useRoomStore } from '../src/stores/roomStore';
 import roomService from '../src/services/RoomService';
 import { Colors, Spacing, BorderRadius, Typography } from '../src/constants/theme';
 import { generateRoomCode } from '../src/utils/id';
+import { RoomRole } from '../src/types';
 
 export default function HostScreen() {
   const deviceName = useAppStore((state) => state.deviceName);
   const networkCapabilities = useAppStore((state) => state.networkCapabilities);
+  const room = useRoomStore((state) => state.room);
+  const role = useRoomStore((state) => state.role);
   
   const [roomName, setRoomName] = useState(`${deviceName}'s Room`);
   const [isCreating, setIsCreating] = useState(false);
+
+  // If already hosting a room, redirect to room screen
+  React.useEffect(() => {
+    if (room && role === RoomRole.HOST) {
+      router.replace('/room');
+    }
+  }, [room, role]);
 
   const handleCreateRoom = async () => {
     if (!roomName.trim()) {

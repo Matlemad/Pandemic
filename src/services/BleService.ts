@@ -21,6 +21,7 @@ import {
   PeerId,
 } from '../types';
 import { generateId, generateSessionToken } from '../utils/id';
+import bleAdvertisingNative from './native/BleAdvertisingNative';
 
 // Try to import BLE module - may not be available in Expo Go
 let BleManager: any = null;
@@ -45,6 +46,33 @@ const JOIN_CHAR_UUID = '0000FDA2-0000-1000-8000-00805F9B34FB';
 
 // Protocol version for compatibility checks
 const PROTOCOL_VERSION = 1;
+
+/**
+ * Helper function to decode base64 to Uint8Array (React Native compatible)
+ * Buffer is not available in React Native, so we use atob + manual conversion
+ */
+function base64ToBytes(base64: string): Uint8Array {
+  // atob is available in React Native
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/**
+ * Helper function to convert Uint8Array to ASCII string
+ */
+function bytesToAscii(bytes: Uint8Array, start: number, length: number): string {
+  let result = '';
+  for (let i = start; i < start + length && i < bytes.length; i++) {
+    if (bytes[i] !== 0) {
+      result += String.fromCharCode(bytes[i]);
+    }
+  }
+  return result;
+}
 
 export interface BleServiceCallbacks {
   onRoomDiscovered: (room: DiscoveredRoom) => void;
@@ -314,6 +342,17 @@ class BleService {
     const existing = this.discoveredDevices.get(deviceId);
     this.discoveredDevices.set(deviceId, { device, lastSeen: now });
 
+    // Debug: log device info to understand structure
+    if (device.serviceUUIDs || device.serviceUuids) {
+      console.log('🔍 Device found with services:', {
+        id: device.id,
+        name: device.name,
+        serviceUUIDs: device.serviceUUIDs || device.serviceUuids,
+        serviceData: device.serviceData,
+        manufacturerData: device.manufacturerData,
+      });
+    }
+
     // Parse advertisement data
     try {
       const roomData = this.parseAdvertisement(device);
@@ -325,55 +364,133 @@ class BleService {
           peerCount: 0, // Will be updated when joining
         };
 
+        console.log('✅ Parsed room from advertisement:', discoveredRoom);
         this.callbacks?.onRoomDiscovered(discoveredRoom);
       }
-    } catch (error) {
-      // Invalid advertisement, ignore
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('❌ Error parsing advertisement:', errorMessage);
     }
   }
 
   /**
    * Parse BLE advertisement data
+   * 
+   * Supports two formats:
+   * 1. Native module format: Service UUID + service data (5 bytes: roomId prefix + wifi flag)
+   * 2. Legacy format: Device name with "P|{roomId}|{roomName}" (for compatibility)
    */
   private parseAdvertisement(device: any): Omit<DiscoveredRoom, 'rssi' | 'lastSeen' | 'peerCount'> | null {
-    // The advertisement data is encoded in the device name and manufacturer data
-    // Format: "P|{roomId}|{roomName}"
-    const name = device.name || device.localName;
-    if (!name || !name.startsWith('P|')) return null;
+    // Check if device has our service UUID (native module format)
+    const serviceUUIDs = device.serviceUUIDs || device.serviceUuids || [];
+    const pandemicServiceUUIDLower = PANDEMIC_SERVICE_UUID.toLowerCase();
+    const hasPandemicService = serviceUUIDs.some((uuid: string) => {
+      const match = uuid.toLowerCase() === pandemicServiceUUIDLower;
+      if (match) {
+        console.log(`✅ Service UUID match: ${uuid} === ${PANDEMIC_SERVICE_UUID}`);
+      }
+      return match;
+    });
 
-    const parts = name.split('|');
-    if (parts.length < 3) return null;
+    console.log(`🔍 Checking device: serviceUUIDs=${JSON.stringify(serviceUUIDs)}, hasPandemicService=${hasPandemicService}, serviceData keys=${Object.keys(device.serviceData || {}).join(', ')}`);
 
-    const [, roomId, roomName] = parts;
-
-    // Extract additional data from manufacturer data if available
-    let hostId = 'unknown';
-    let hostName = 'Unknown Host';
-    let wifiAvailable = false;
-    let hostAddress: string | null = null;
-
-    if (device.manufacturerData) {
+    if (hasPandemicService) {
+      // Native module format: data is in service data
       try {
-        const decoded = Buffer.from(device.manufacturerData, 'base64').toString('utf8');
-        const data = JSON.parse(decoded);
-        hostId = data.hostId || hostId;
-        hostName = data.hostName || hostName;
-        wifiAvailable = data.wifiAvailable || false;
-        hostAddress = data.hostAddress || null;
-      } catch {
-        // Use defaults
+        // react-native-ble-plx exposes service data in device.serviceData
+        // Format: { [serviceUUID]: base64 encoded bytes }
+        // Note: The key might be in different case, so we need to find it case-insensitively
+        const serviceData = device.serviceData || {};
+        
+        // Find the service data key (case-insensitive match)
+        let pandemicServiceData: string | undefined;
+        const serviceDataKeys = Object.keys(serviceData);
+        for (const key of serviceDataKeys) {
+          if (key.toLowerCase() === pandemicServiceUUIDLower) {
+            pandemicServiceData = serviceData[key];
+            break;
+          }
+        }
+        
+        if (pandemicServiceData) {
+          // Decode service data: [15 bytes roomId prefix][1 byte wifi flag] = 16 bytes
+          const bytes = base64ToBytes(pandemicServiceData);
+          
+          console.log(`📡 Decoding service data: ${pandemicServiceData}, bytes length: ${bytes.length}`);
+          
+          if (bytes.length >= 16) {
+            // Extract roomId prefix (first 15 bytes as ASCII)
+            const roomIdPrefix = bytesToAscii(bytes, 0, 15);
+            const wifiFlag = bytes[15] === 1;
+            
+            console.log(`✅ Found Pandemic room via service data: prefix=${roomIdPrefix}, wifi=${wifiFlag}, bytes:`, Array.from(bytes).map(b => b.toString(16)).join(' '));
+            
+            // Use prefix as roomId identifier (we'll need to match with full roomId when joining)
+            // Format the prefix as a UUID-like string for compatibility
+            // Prefix is 15 chars, UUID without dash is 32 chars, so we pad with zeros
+            const roomIdFromPrefix = `${roomIdPrefix}0-0000-0000-0000-000000000000`.substring(0, 36);
+            
+            return {
+              roomId: roomIdFromPrefix, // This is a reconstructed ID, will be verified on join
+              roomName: `Room ${roomIdPrefix.substring(0, 4)}`, // Placeholder name
+              hostId: 'unknown',
+              hostName: 'Unknown Host',
+              hostAddress: null,
+              wifiAvailable: wifiFlag,
+              createdAt: Date.now(),
+            };
+          } else {
+            console.warn(`⚠️ Service data too short: ${bytes.length} bytes, expected 16`);
+          }
+        } else {
+          console.warn('⚠️ Service UUID found but no service data available');
+        }
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error('❌ Error parsing native service data:', errorMessage);
       }
     }
 
-    return {
-      roomId,
-      roomName: decodeURIComponent(roomName),
-      hostId,
-      hostName,
-      hostAddress,
-      wifiAvailable,
-      createdAt: Date.now(),
-    };
+    // Legacy format: Check device name (for backwards compatibility)
+    const name = device.name || device.localName;
+    if (name && name.startsWith('P|')) {
+      const parts = name.split('|');
+      if (parts.length >= 3) {
+        const [, roomId, roomName] = parts;
+
+        // Extract additional data from manufacturer data if available
+        let hostId = 'unknown';
+        let hostName = 'Unknown Host';
+        let wifiAvailable = false;
+        let hostAddress: string | null = null;
+
+        if (device.manufacturerData) {
+          try {
+            const bytes = base64ToBytes(device.manufacturerData);
+            const decoded = bytesToAscii(bytes, 0, bytes.length);
+            const data = JSON.parse(decoded);
+            hostId = data.hostId || hostId;
+            hostName = data.hostName || hostName;
+            wifiAvailable = data.wifiAvailable || false;
+            hostAddress = data.hostAddress || null;
+          } catch {
+            // Use defaults
+          }
+        }
+
+        return {
+          roomId,
+          roomName: decodeURIComponent(roomName),
+          hostId,
+          hostName,
+          hostAddress,
+          wifiAvailable,
+          createdAt: Date.now(),
+        };
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -419,18 +536,48 @@ class BleService {
     this.currentAdvertisement = advertisement;
     this.isAdvertising = true;
 
-    // Note: react-native-ble-plx doesn't support peripheral mode directly
-    // We would need to use a different approach or library for advertising
-    // For now, we'll use a polling mechanism where hosts periodically broadcast
-    // and guests scan
-    
-    console.log('Started advertising room:', advertisement.roomName);
+    // Try to use native advertising module if available (Android)
+    if (bleAdvertisingNative.isAvailable()) {
+      try {
+        console.log('📡 Using native BLE advertising module');
+        const success = await bleAdvertisingNative.startAdvertising(advertisement);
+        if (success) {
+          console.log('✅ Native BLE advertising started successfully:', advertisement.roomName);
+          return;
+        } else {
+          console.warn('⚠️ Native BLE advertising start returned false, falling back to simulation');
+        }
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.warn('⚠️ Native BLE advertising failed, falling back to simulation:', errorMessage);
+        // Continue to fallback behavior below
+      }
+    } else {
+      console.warn('⚠️ Native BLE advertising module not available - using simulation mode');
+    }
+
+    // Fallback: Mark as advertising but don't actually broadcast
+    // This is what happens on iOS or if native module fails
+    console.warn('⚠️ BLE advertising in simulation mode (not actually broadcasting)');
+    console.log('Room would be advertised:', advertisement.roomName);
+    console.log('Note: iOS advertising requires native implementation');
   }
 
   /**
    * Stop advertising
    */
-  stopAdvertising(): void {
+  async stopAdvertising(): Promise<void> {
+    // Stop native advertising if active
+    if (bleAdvertisingNative.isAvailable() && this.isAdvertising) {
+      try {
+        await bleAdvertisingNative.stopAdvertising();
+        console.log('✅ Native BLE advertising stopped');
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error('Error stopping native BLE advertising:', errorMessage);
+      }
+    }
+
     this.currentAdvertisement = null;
     this.isAdvertising = false;
     console.log('Stopped advertising');
@@ -484,10 +631,14 @@ class BleService {
       // and read the response from the GATT characteristics
 
       // For now, simulate a successful join
+      // In a real implementation, we would call the host's onJoinRequest callback
+      // and get the roomName from the response. For now, use the room name from discovery
+      // (which may be a generic "Room {prefix}" if parsed from BLE advertisement only)
       const response: BleJoinResponse = {
         success: true,
         sessionToken: generateSessionToken(),
         hostAddress: room.hostAddress,
+        roomName: room.roomName, // Use room name from discovery (will be updated via LAN if available)
         error: null,
       };
 
@@ -539,9 +690,9 @@ class BleService {
   /**
    * Cleanup resources
    */
-  destroy(): void {
+  async destroy(): Promise<void> {
     this.stopScanning();
-    this.stopAdvertising();
+    await this.stopAdvertising();
     this.stateSubscription?.remove();
     if (this.manager) {
       try {

@@ -189,6 +189,7 @@ export interface BleJoinResponse {
   success: boolean;
   sessionToken: SessionToken | null;
   hostAddress: string | null;
+  roomName?: string; // Full room name from host
   error: string | null;
 }
 
