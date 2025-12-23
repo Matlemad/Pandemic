@@ -1,30 +1,74 @@
 {
   "expo": {
     "name": "Pandemic",
-    "slug": "Pandemic",
+    "slug": "pandemic",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "scheme": "pandemic",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0A0A0B"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pandemic.app",
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "Pandemic usa Bluetooth per scoprire e connettersi a dispositivi vicini",
+        "NSBluetoothPeripheralUsageDescription": "Pandemic usa Bluetooth per scoprire e connettersi a dispositivi vicini",
+        "NSLocalNetworkUsageDescription": "Pandemic usa la rete locale per trasferire file audio",
+        "NSPhotoLibraryUsageDescription": "Pandemic accede alla libreria per importare file audio"
+      }
     },
     "android": {
+      "package": "com.pandemic.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0A0A0B"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "permissions": [
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH_ADVERTISE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.CHANGE_WIFI_STATE",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_AUDIO"
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Consenti a Pandemic di accedere ai file audio",
+          "savePhotosPermission": "Consenti a Pandemic di salvare file audio",
+          "isAccessMediaLocationEnabled": true,
+          "audioPermission": "Consenti a Pandemic di accedere ai file audio"
+        }
+      ],
+      [
+        "expo-document-picker",
+        {
+          "iCloudContainerEnvironment": "Production"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }
