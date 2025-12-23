@@ -62,7 +62,7 @@ class BleService {
   private scanSubscription: any = null;
   private stateSubscription: any = null;
   private discoveredDevices: Map<string, { device: any; lastSeen: number }> = new Map();
-  private cleanupInterval: NodeJS.Timeout | null = null;
+  private cleanupInterval: ReturnType<typeof setInterval> | null = null;
 
   // Current advertisement data (when hosting)
   private currentAdvertisement: BleAdvertisement | null = null;
@@ -101,15 +101,18 @@ class BleService {
     try {
       // Check BLE state
       const state = await this.manager.state();
+      console.log('Current BLE state:', state);
       
       if (state !== State.PoweredOn) {
+        console.log('BLE not powered on, waiting...');
         // Wait for BLE to be ready
         await new Promise<void>((resolve, reject) => {
           const timeout = setTimeout(() => {
-            reject(new Error('Bluetooth non disponibile'));
+            reject(new Error('Bluetooth non disponibile - assicurati che Bluetooth sia acceso'));
           }, 10000);
 
-          this.stateSubscription = this.manager.onStateChange((newState) => {
+          this.stateSubscription = this.manager.onStateChange((newState: any) => {
+            console.log('BLE state changed:', newState);
             if (newState === State.PoweredOn) {
               clearTimeout(timeout);
               resolve();
@@ -120,41 +123,104 @@ class BleService {
 
       // Request permissions on Android
       if (Platform.OS === 'android') {
+        console.log('Requesting Android BLE permissions (Android version:', Platform.Version, ')');
         const granted = await this.requestAndroidPermissions();
         if (!granted) {
-          throw new Error('Permessi Bluetooth non concessi');
+          const errorMsg = 'Permessi Bluetooth non concessi - Vai in Impostazioni → App → Pandemic → Permessi e attiva Bluetooth e Posizione';
+          console.error(errorMsg);
+          throw new Error(errorMsg);
         }
+        console.log('Android BLE permissions granted');
       }
 
       this.isInitialized = true;
+      console.log('BLE service initialized successfully');
       return true;
-    } catch (error) {
-      console.error('BLE initialization failed:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('BLE initialization failed:', errorMessage);
+      
+      // Call error callback if available
+      if (this.callbacks?.onError && error instanceof Error) {
+        this.callbacks.onError(error);
+      }
+      
       return false;
     }
   }
 
   /**
    * Request Android BLE permissions
+   * Handles both Android 12+ (new permissions) and Android < 12 (legacy permissions)
    */
   private async requestAndroidPermissions(): Promise<boolean> {
     if (Platform.OS !== 'android') return true;
 
     try {
-      const permissions = [
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      ];
+      // Android 12 (API 31) introduced new BLE permissions
+      // For older versions, we only need LOCATION permission (BLUETOOTH/BLUETOOTH_ADMIN are granted at install time)
+      const androidVersion = Platform.Version as number;
+      const isAndroid12OrHigher = androidVersion >= 31;
 
-      const results = await PermissionsAndroid.requestMultiple(permissions);
+      let permissions: any[] = [];
+
+      if (isAndroid12OrHigher) {
+        // Android 12+ - New granular permissions
+        permissions = [
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        ];
+      } else {
+        // Android < 12 - Only need location permission
+        // BLUETOOTH and BLUETOOTH_ADMIN are granted at install time via manifest
+        permissions = [
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        ];
+      }
+
+      // Filter out undefined permissions (in case some constants are not available)
+      const validPermissions = permissions.filter((p) => p !== undefined);
+
+      if (validPermissions.length === 0) {
+        console.warn('No valid BLE permissions found for Android version:', androidVersion);
+        // On Android < 12, if no permissions are needed, consider it granted
+        return !isAndroid12OrHigher;
+      }
+
+      const results = await PermissionsAndroid.requestMultiple(validPermissions);
       
-      return Object.values(results).every(
+      // Check if all permissions were granted
+      const allGranted = Object.values(results).every(
         (result) => result === PermissionsAndroid.RESULTS.GRANTED
       );
-    } catch (error) {
-      console.error('Permission request failed:', error);
+
+      if (!allGranted) {
+        console.warn('Some BLE permissions were denied:', results);
+      }
+
+      return allGranted;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Permission request failed:', errorMessage);
+      
+      // On older Android versions, if permission request fails but we only needed location,
+      // try just location permission
+      const androidVersion = Platform.Version as number;
+      if (androidVersion < 31) {
+        console.warn('Falling back to basic location permission for Android < 12');
+        try {
+          const locationResult = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+          );
+          return locationResult === PermissionsAndroid.RESULTS.GRANTED;
+        } catch (locationError) {
+          console.error('Location permission request also failed:', locationError);
+          return false;
+        }
+      }
+      
       return false;
     }
   }
@@ -197,10 +263,14 @@ class BleService {
     this.manager.startDeviceScan(
       [PANDEMIC_SERVICE_UUID],
       { allowDuplicates: true },
-      (error, device) => {
+      (error: any, device: any) => {
         if (error) {
           console.error('Scan error:', error);
-          this.callbacks?.onError(error);
+          if (this.callbacks?.onError && error instanceof Error) {
+            this.callbacks.onError(error);
+          } else if (this.callbacks?.onError) {
+            this.callbacks.onError(new Error(String(error)));
+          }
           return;
         }
 
