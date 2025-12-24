@@ -277,21 +277,51 @@ npx expo run:android --device
 
 ## 📱 Utilizzo
 
-### Come Host
+### Same-Platform P2P (Android↔Android, iOS↔iOS)
 
+**Come Host:**
 1. Apri l'app
 2. Tap "Crea Stanza"
 3. Inserisci un nome per la stanza
 4. Attendi che altri si connettano
 5. Condividi file dalla tua libreria
 
-### Come Guest
-
+**Come Guest:**
 1. Apri l'app
 2. Tap "Trova Stanze"
-3. Seleziona una stanza dalla lista
-4. Sfoglia i file disponibili
-5. Scarica i file che ti interessano
+3. Cerca in "Stanze Vicine (P2P)"
+4. Seleziona una stanza dalla lista
+5. Sfoglia i file disponibili
+6. Scarica i file che ti interessano
+
+### Cross-Platform (Android↔iOS) - Venue Mode 🌐
+
+Per condividere file tra Android e iOS serve un **Venue Host** locale (laptop/Raspberry Pi) sulla stessa rete Wi-Fi.
+
+**1. Avvia il Venue Host:**
+```bash
+cd venue-host
+npm install
+npm run dev
+```
+
+**2. Monitora la Dashboard:**
+Apri http://localhost:8787 per vedere peers e file in tempo reale.
+
+**3. Sui device mobili:**
+1. Connettiti alla stessa rete Wi-Fi del Venue Host
+2. Apri l'app → "Trova Stanze"
+3. Cerca in "Venue Rooms (Wi-Fi Cross-Platform)"
+4. Tocca la room del venue host per entrare
+5. Vai in Library → Seleziona file → "Condividi"
+6. I file appaiono su tutti i device connessi
+
+**Fallback connessione manuale:**
+Se mDNS non funziona (reti con AP isolation, Android 11):
+- Tocca "📶 Connetti manualmente a Venue Host"
+- Inserisci IP del laptop (es. `192.168.1.5`) e porta (`8787`)
+
+📖 Dettagli completi in [P2P_README.md](./P2P_README.md)
 
 ---
 
@@ -331,32 +361,36 @@ pandemic/
 │   └── settings.tsx       # Settings
 ├── src/
 │   ├── components/        # UI components
-│   │   ├── Button.tsx
-│   │   ├── FileCard.tsx
-│   │   ├── RoomCard.tsx
-│   │   ├── TransferItem.tsx
-│   │   ├── EmptyState.tsx
-│   │   └── Header.tsx
 │   ├── services/          # Business logic
-│   │   ├── BleService.ts
-│   │   ├── NetworkService.ts
-│   │   ├── RoomService.ts
-│   │   └── AudioLibraryService.ts
 │   ├── stores/            # Zustand stores
-│   │   ├── appStore.ts
-│   │   ├── roomStore.ts
-│   │   └── transferStore.ts
+│   ├── p2p/               # Native P2P transport (Nearby/Multipeer)
+│   │   ├── transport.base.ts   # Abstract interface
+│   │   ├── transport.android.ts
+│   │   ├── transport.ios.ts
+│   │   └── protocol/      # Room protocol
+│   ├── venue/             # Venue LAN cross-platform
+│   │   ├── types.ts       # Venue types
+│   │   ├── discovery.ts   # mDNS discovery
+│   │   ├── transport.ts   # WebSocket transport
+│   │   └── relay.ts       # File relay
 │   ├── types/             # TypeScript types
-│   │   └── index.ts
 │   ├── utils/             # Utilities
-│   │   ├── id.ts
-│   │   └── format.ts
 │   └── constants/         # Theme & constants
-│       └── theme.ts
+├── venue-host/            # 🌐 Local LAN host (Node.js)
+│   ├── src/
+│   │   ├── index.ts       # Entry + HTTP dashboard
+│   │   ├── types.ts       # Zod schemas
+│   │   ├── room-manager.ts
+│   │   └── ws-handler.ts
+│   ├── package.json
+│   └── README.md
+├── ios/                   # Native iOS modules
+├── android/               # Native Android modules
 ├── assets/                # Images, fonts
 ├── app.json              # Expo config
 ├── package.json
 ├── tsconfig.json
+├── P2P_README.md         # 📖 P2P + Venue documentation
 └── README.md
 ```
 
@@ -388,25 +422,27 @@ L'interfaccia è ispirata all'atmosfera di un warehouse party:
 
 ## 🔮 Roadmap
 
-### MVP (v1.0)
-- [x] Creazione stanze
-- [x] Discovery BLE
+### MVP (v1.0) ✅
+- [x] Creazione stanze P2P
+- [x] Discovery (Nearby Connections / MultipeerConnectivity)
 - [x] Join room
 - [x] Condivisione metadati
-- [x] Trasferimento file (simulato)
 - [x] Libreria audio locale
 
-### v1.1
-- [ ] Trasferimenti reali via HTTP
-- [ ] WebSocket per real-time updates
-- [ ] Compressione audio on-the-fly
+### v1.1 - Cross-Platform 🚧
+- [x] Venue Host (Node.js) per Android↔iOS
+- [x] mDNS discovery (Bonjour / NSD)
+- [x] WebSocket transport + file relay
+- [x] Dashboard web per monitoring
+- [x] Connessione manuale fallback
+- [ ] Resume trasferimenti interrotti
 - [ ] Notifiche push locali
 
 ### v2.0
-- [ ] Server HTTP nativo
 - [ ] Modalità BLE-only completa
 - [ ] Playlist condivise
-- [ ] Anteprima audio
+- [ ] Anteprima audio streaming
+- [ ] Compressione audio on-the-fly
 
 ---
 

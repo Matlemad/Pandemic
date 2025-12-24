@@ -22,6 +22,7 @@ import { useRoomStore } from '../src/stores/roomStore';
 import { useTransferStore } from '../src/stores/transferStore';
 import { useAppStore } from '../src/stores/appStore';
 import roomService from '../src/services/RoomService';
+import { venueLanTransport } from '../src/venue/transport';
 import { RoomRole, SharedFileMetadata, TransferDirection, TransportMode } from '../src/types';
 import { Colors, Spacing, BorderRadius, Typography } from '../src/constants/theme';
 
@@ -48,9 +49,87 @@ export default function RoomScreen() {
     }
   }, [room]);
 
+  // Determine if we're in venue mode
+  const isVenueModeCheck = room?.hostAddress?.includes(':8787') || room?.roomId?.includes(':');
+
+  // Setup venue callbacks when in venue mode
+  React.useEffect(() => {
+    if (!isVenueModeCheck) return;
+
+    console.log('[Room] Setting up venue callbacks');
+    const roomStore = useRoomStore.getState();
+
+    // Handle file updates from venue
+    venueLanTransport.setOnFilesUpdated((files) => {
+      console.log('[Room] Venue files updated:', files.length);
+      // Clear existing shared files and add new ones
+      roomStore.updateSharedFiles(files.map((f) => ({
+        fileId: f.id,
+        fileName: f.title,
+        title: f.title,
+        artist: f.artist || null,
+        album: null,
+        duration: f.duration || 0,
+        format: 'audio/mpeg' as any,
+        sizeBytes: f.size,
+        bitrate: null,
+        sampleRate: null,
+        localPath: '',
+        addedAt: f.addedAt || Date.now(),
+        checksum: f.sha256,
+        ownerId: f.ownerPeerId,
+        ownerName: f.ownerName,
+        ownerAddress: null,
+        isSharedByMe: f.ownerPeerId === deviceId,
+      })));
+    });
+
+    // Handle peer updates
+    venueLanTransport.setOnPeerJoined((peer) => {
+      console.log('[Room] Venue peer joined:', peer.deviceName);
+      roomStore.addPeer({
+        peerId: peer.peerId,
+        peerName: peer.deviceName,
+        address: null,
+        joinedAt: peer.joinedAt,
+        sharedFileCount: peer.sharedFileCount,
+        isOnline: true,
+      });
+    });
+
+    venueLanTransport.setOnPeerLeft((peerId) => {
+      console.log('[Room] Venue peer left:', peerId);
+      roomStore.removePeer(peerId);
+    });
+
+    // Handle disconnection
+    venueLanTransport.setOnDisconnected(() => {
+      console.log('[Room] Disconnected from venue host');
+      Alert.alert(
+        'Disconnesso',
+        'La connessione al venue host è stata persa.',
+        [{ text: 'OK', onPress: () => {
+          roomStore.leaveRoom();
+          router.replace('/');
+        }}]
+      );
+    });
+
+    return () => {
+      // Cleanup callbacks
+      venueLanTransport.setOnFilesUpdated(() => {});
+      venueLanTransport.setOnPeerJoined(() => {});
+      venueLanTransport.setOnPeerLeft(() => {});
+      venueLanTransport.setOnDisconnected(() => {});
+    };
+  }, [isVenueModeCheck, deviceId]);
+
   if (!room) return null;
 
   const isHost = role === RoomRole.HOST;
+  // In venue mode (WiFi LAN), everyone can share files
+  const isVenueMode = isVenueModeCheck;
+  const canShare = isHost || isVenueMode; // Host or venue participant can share
   const myFiles = sharedFiles.filter((f) => f.ownerId === deviceId);
   const otherFiles = sharedFiles.filter((f) => f.ownerId !== deviceId);
   const activeTransfers = transfers.filter(
@@ -181,12 +260,12 @@ export default function RoomScreen() {
           icon="📂"
           title="Nessun file disponibile"
           description={
-            isHost
+            canShare
               ? 'Condividi file dalla tua libreria per iniziare'
               : 'Nessuno sta condividendo file in questa stanza'
           }
-          actionTitle={isHost ? 'Condividi file' : undefined}
-          onAction={isHost ? handleShareFiles : undefined}
+          actionTitle={canShare ? 'Condividi file' : undefined}
+          onAction={canShare ? handleShareFiles : undefined}
         />
       }
     />
@@ -253,7 +332,7 @@ export default function RoomScreen() {
     <SafeAreaView style={styles.container}>
       <Header
         title={room.roomName}
-        subtitle={isHost ? '👑 Host' : `Da: ${room.hostName}`}
+        subtitle={isVenueMode ? '📶 Venue Room' : isHost ? '👑 Host' : `Da: ${room.hostName}`}
         rightIcon="🚪"
         onRightPress={handleLeaveRoom}
       />
@@ -290,8 +369,8 @@ export default function RoomScreen() {
         {activeTab === 'peers' && renderPeersTab()}
       </View>
 
-      {/* Share FAB (Host only) */}
-      {isHost && activeTab === 'files' && (
+      {/* Share FAB (Host or Venue participant) */}
+      {canShare && activeTab === 'files' && (
         <TouchableOpacity
           style={styles.fab}
           onPress={handleShareFiles}

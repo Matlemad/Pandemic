@@ -19,7 +19,7 @@ import { Header } from '../src/components/Header';
 import { EmptyState } from '../src/components/EmptyState';
 import { Button } from '../src/components/Button';
 import audioLibraryService from '../src/services/AudioLibraryService';
-import roomService from '../src/services/RoomService';
+import { roomService } from '../src/services';
 import { useRoomStore } from '../src/stores/roomStore';
 import { AudioFileMetadata, AudioFormat } from '../src/types';
 import { Colors, Spacing, BorderRadius, Typography } from '../src/constants/theme';
@@ -105,11 +105,27 @@ export default function LibraryScreen() {
     });
   };
 
-  const handleShareSelected = () => {
+  const handleShareSelected = async () => {
     if (selectedFiles.size === 0) return;
 
     const filesToShare = files.filter((f) => selectedFiles.has(f.fileId));
-    roomService.shareFiles(filesToShare);
+    
+    // Convert AudioFileMetadata to LocalAudioFile format
+    const localFiles = filesToShare.map((f) => ({
+      id: f.fileId,
+      title: f.title,
+      artist: f.artist || undefined,
+      album: f.album || undefined,
+      duration: f.duration,
+      size: f.sizeBytes,
+      mimeType: `audio/${f.format}`,
+      sha256: f.checksum,
+      localPath: f.localPath,
+      addedAt: f.addedAt,
+      isShared: true,
+    }));
+    
+    await roomService.shareFiles(localFiles);
     
     Alert.alert(
       'File condivisi',
