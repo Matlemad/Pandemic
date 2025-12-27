@@ -3,17 +3,22 @@
  * 
  * Local LAN venue host for cross-platform P2P audio sharing.
  * Provides mDNS discovery + WebSocket communication + file relay.
+ * Dashboard for venue operator control.
  */
 
-import { createServer } from 'http';
+import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { WebSocketServer } from 'ws';
 import Bonjour from 'bonjour-service';
 import { networkInterfaces } from 'os';
 import { config as loadEnv } from 'dotenv';
+import { exec } from 'child_process';
 
 import { RoomManager } from './room-manager.js';
 import { WebSocketHandler } from './ws-handler.js';
 import { VenueHostConfig, DEFAULT_CONFIG } from './types.js';
+import { hostState, HostRoom } from './host-state.js';
+import { handleAdminRequest } from './admin-api.js';
+import { getDashboardHtml } from './dashboard.js';
 
 // Load environment variables
 loadEnv();
@@ -32,6 +37,56 @@ const config: VenueHostConfig = {
 };
 
 // ============================================================================
+// MDNS SERVICE
+// ============================================================================
+
+let bonjour: InstanceType<typeof Bonjour.default> | null = null;
+let mdnsService: any = null;
+
+function startMdns(room: HostRoom): void {
+  stopMdns();
+  
+  bonjour = new Bonjour.default();
+  
+  mdnsService = bonjour.publish({
+    name: config.serviceName,
+    type: 'audiowallet',
+    port: config.port,
+    txt: {
+      v: '1',
+      room: room.name,
+      lock: room.locked ? '1' : '0',
+      relay: '1',
+    },
+  });
+  
+  mdnsService.on('up', () => {
+    console.log(`[mDNS] Service advertised: ${config.serviceName}`);
+    console.log(`[mDNS] Room: ${room.name} (${room.locked ? 'Locked' : 'Unlocked'})`);
+  });
+  
+  mdnsService.on('error', (error: Error) => {
+    console.error('[mDNS] Error:', error.message);
+  });
+}
+
+function stopMdns(): void {
+  if (mdnsService) {
+    mdnsService.stop();
+    mdnsService = null;
+  }
+  if (bonjour) {
+    bonjour.destroy();
+    bonjour = null;
+  }
+}
+
+function updateMdns(room: HostRoom): void {
+  // Stop and restart with new config
+  startMdns(room);
+}
+
+// ============================================================================
 // UTILITIES
 // ============================================================================
 
@@ -44,7 +99,6 @@ function getLocalIPs(): string[] {
     if (!nets) continue;
     
     for (const net of nets) {
-      // Skip internal and non-IPv4 addresses
       if (net.internal || net.family !== 'IPv4') continue;
       ips.push(net.address);
     }
@@ -63,7 +117,6 @@ function printBanner(): void {
 ╠═══════════════════════════════════════════════════════════════╣
 ║                                                               ║
 ║   Service: ${config.serviceName.padEnd(48)}║
-║   Room:    ${config.roomName.padEnd(48)}║
 ║   Port:    ${String(config.port).padEnd(48)}║
 ║   Max file: ${(config.maxFileMB + ' MB').padEnd(47)}║
 ║                                                               ║
@@ -71,41 +124,10 @@ function printBanner(): void {
   `);
 }
 
-function printLocalIPs(): void {
-  const ips = getLocalIPs();
-  
-  console.log('📡 Local network addresses:');
-  if (ips.length === 0) {
-    console.log('   ⚠️  No network interfaces found');
-  } else {
-    for (const ip of ips) {
-      console.log(`   • ws://${ip}:${config.port}`);
-    }
-  }
-  console.log();
-}
-
-function printMdnsInfo(): void {
-  console.log('🔍 mDNS Service Advertisement:');
-  console.log(`   Type: _audiowallet._tcp`);
-  console.log(`   Name: ${config.serviceName}`);
-  console.log(`   TXT:  v=1, room=${config.roomName}, relay=1`);
-  console.log();
-}
-
-function printInstructions(): void {
-  console.log('📱 How to test:');
-  console.log('   1. Connect phone(s) to the same Wi-Fi network as this host');
-  console.log('   2. Open Pandemic app on Android or iOS');
-  console.log('   3. Look for "Venue Rooms" section in the app');
-  console.log('   4. Tap to join this venue room');
-  console.log();
-  console.log('🔧 Environment variables:');
-  console.log('   PORT         WebSocket port (default: 8787)');
-  console.log('   ROOM_NAME    Room display name');
-  console.log('   SERVICE_NAME mDNS service name');
-  console.log('   MAX_FILE_MB  Max file size in MB (default: 50)');
-  console.log();
+function openBrowser(url: string): void {
+  const cmd = process.platform === 'darwin' ? 'open' :
+              process.platform === 'win32' ? 'start' : 'xdg-open';
+  exec(`${cmd} ${url}`);
 }
 
 // ============================================================================
@@ -114,30 +136,75 @@ function printInstructions(): void {
 
 async function main(): Promise<void> {
   printBanner();
-  printLocalIPs();
   
-  // Initialize room manager
+  const ips = getLocalIPs();
+  console.log('📡 Local network addresses:');
+  for (const ip of ips) {
+    console.log(`   • ws://${ip}:${config.port}`);
+  }
+  console.log();
+  
+  // Initialize room manager with host state integration
   const roomManager = new RoomManager(config);
   const wsHandler = new WebSocketHandler(roomManager, config);
   
-  // Create HTTP server with dashboard
-  const httpServer = createServer((req, res) => {
-    if (req.url === '/health') {
+  // Integrate host state with room manager
+  const existingRoom = hostState.getRoom();
+  if (existingRoom) {
+    roomManager.updateDefaultRoom(existingRoom.name, existingRoom.id);
+    console.log(`[Init] Loaded room from disk: ${existingRoom.name}`);
+    
+    // Publish host files to room
+    const hostFiles = hostState.getPublishedFiles();
+    if (hostFiles.length > 0) {
+      roomManager.setHostFiles(hostFiles);
+      console.log(`[Init] Loaded ${hostFiles.length} host files`);
+    }
+  }
+  
+  // Listen for host state changes
+  hostState.onChange((state) => {
+    if (state.room) {
+      roomManager.updateDefaultRoom(state.room.name, state.room.id);
+      roomManager.setHostFiles(state.hostFiles);
+      updateMdns(state.room);
+    }
+  });
+  
+  // Create HTTP server
+  const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+    const url = req.url || '';
+    
+    // Handle Admin API (localhost only or for dev)
+    if (url.startsWith('/admin')) {
+      const handled = await handleAdminRequest(req, res);
+      if (handled) return;
+    }
+    
+    // Health check
+    if (url === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         status: 'ok',
+        room: hostState.getRoom(),
         ...roomManager.getStats(),
       }));
-    } else if (req.url === '/api/stats') {
+      return;
+    }
+    
+    // Stats API
+    if (url === '/api/stats') {
       res.writeHead(200, { 
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
       });
       const stats = roomManager.getStats() as any;
-      const files = roomManager.getRoomFiles('default');
-      const peers = roomManager.getRoomPeers('default');
+      const defaultRoomId = roomManager.getDefaultRoomId();
+      const files = roomManager.getRoomFiles(defaultRoomId);
+      const peers = roomManager.getRoomPeers(defaultRoomId);
       res.end(JSON.stringify({
         ...stats,
+        room: hostState.getRoom(),
         files: files.map(f => ({
           id: f.id,
           title: f.title,
@@ -154,194 +221,19 @@ async function main(): Promise<void> {
           joinedAt: p.joinedAt,
         })),
       }));
-    } else if (req.url === '/') {
+      return;
+    }
+    
+    // Dashboard
+    if (url === '/') {
       res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(`
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Pandemic Venue Host - Dashboard</title>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      color: #e0e0e0;
-      min-height: 100vh;
-      padding: 20px;
-    }
-    .container { max-width: 1000px; margin: 0 auto; }
-    h1 { font-size: 28px; margin-bottom: 20px; color: #00ff88; }
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 25px; }
-    .stat-card { 
-      background: rgba(255,255,255,0.1); 
-      padding: 20px; 
-      border-radius: 12px;
-      text-align: center;
-    }
-    .stat-value { font-size: 36px; font-weight: bold; color: #00ff88; }
-    .stat-label { font-size: 14px; color: #888; margin-top: 5px; }
-    .section { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-    .section h2 { font-size: 18px; margin-bottom: 15px; color: #fff; }
-    .item { 
-      background: rgba(255,255,255,0.05); 
-      padding: 12px 15px; 
-      border-radius: 8px; 
-      margin-bottom: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .item-title { font-weight: 500; }
-    .item-meta { font-size: 12px; color: #888; }
-    .badge { 
-      background: #00ff88; 
-      color: #1a1a2e; 
-      padding: 4px 10px; 
-      border-radius: 12px; 
-      font-size: 12px;
-      font-weight: bold;
-    }
-    .empty { text-align: center; color: #666; padding: 30px; }
-    .refresh { font-size: 12px; color: #666; text-align: center; margin-top: 20px; }
-    .log { 
-      background: #0a0a15; 
-      padding: 15px; 
-      border-radius: 8px; 
-      font-family: monospace; 
-      font-size: 12px;
-      max-height: 200px;
-      overflow-y: auto;
-    }
-    .log-entry { margin-bottom: 5px; }
-    .log-time { color: #666; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>🦠 Pandemic Venue Host</h1>
-    
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-value" id="peerCount">-</div>
-        <div class="stat-label">Connected Peers</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="fileCount">-</div>
-        <div class="stat-label">Shared Files</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="transferCount">-</div>
-        <div class="stat-label">Active Transfers</div>
-      </div>
-    </div>
-    
-    <div class="section">
-      <h2>📱 Connected Peers</h2>
-      <div id="peerList"><div class="empty">No peers connected</div></div>
-    </div>
-    
-    <div class="section">
-      <h2>🎵 Shared Files</h2>
-      <div id="fileList"><div class="empty">No files shared yet</div></div>
-    </div>
-    
-    <div class="section">
-      <h2>📋 Recent Activity</h2>
-      <div class="log" id="activityLog">
-        <div class="log-entry"><span class="log-time">[${new Date().toLocaleTimeString()}]</span> Dashboard opened</div>
-      </div>
-    </div>
-    
-    <div class="refresh">Auto-refreshing every 2 seconds</div>
-  </div>
-  
-  <script>
-    function formatSize(bytes) {
-      if (bytes < 1024) return bytes + ' B';
-      if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
-      return (bytes/(1024*1024)).toFixed(1) + ' MB';
+      res.end(getDashboardHtml(config.port));
+      return;
     }
     
-    function formatTime(ts) {
-      return new Date(ts).toLocaleTimeString();
-    }
-    
-    let lastPeerCount = 0;
-    let lastFileCount = 0;
-    
-    async function refresh() {
-      try {
-        const res = await fetch('/api/stats');
-        const data = await res.json();
-        
-        document.getElementById('peerCount').textContent = data.peerCount || 0;
-        document.getElementById('fileCount').textContent = data.defaultRoom?.fileCount || 0;
-        document.getElementById('transferCount').textContent = data.activeTransfers || 0;
-        
-        // Update peer list
-        const peerList = document.getElementById('peerList');
-        if (data.peers && data.peers.length > 0) {
-          peerList.innerHTML = data.peers.map(p => \`
-            <div class="item">
-              <div>
-                <div class="item-title">\${p.deviceName}</div>
-                <div class="item-meta">\${p.platform} • \${p.fileCount} files • Joined \${formatTime(p.joinedAt)}</div>
-              </div>
-              <span class="badge">🟢 Online</span>
-            </div>
-          \`).join('');
-        } else {
-          peerList.innerHTML = '<div class="empty">No peers connected</div>';
-        }
-        
-        // Update file list
-        const fileList = document.getElementById('fileList');
-        if (data.files && data.files.length > 0) {
-          fileList.innerHTML = data.files.map(f => \`
-            <div class="item">
-              <div>
-                <div class="item-title">\${f.title}</div>
-                <div class="item-meta">\${f.artist || 'Unknown'} • \${formatSize(f.size)} • from \${f.ownerName}</div>
-              </div>
-            </div>
-          \`).join('');
-        } else {
-          fileList.innerHTML = '<div class="empty">No files shared yet</div>';
-        }
-        
-        // Log changes
-        const log = document.getElementById('activityLog');
-        const now = new Date().toLocaleTimeString();
-        
-        if (data.peerCount !== lastPeerCount) {
-          const diff = data.peerCount - lastPeerCount;
-          log.innerHTML = \`<div class="log-entry"><span class="log-time">[\${now}]</span> Peer \${diff > 0 ? 'connected' : 'disconnected'} (total: \${data.peerCount})</div>\` + log.innerHTML;
-          lastPeerCount = data.peerCount;
-        }
-        
-        if ((data.defaultRoom?.fileCount || 0) !== lastFileCount) {
-          log.innerHTML = \`<div class="log-entry"><span class="log-time">[\${now}]</span> Files updated (total: \${data.defaultRoom?.fileCount || 0})</div>\` + log.innerHTML;
-          lastFileCount = data.defaultRoom?.fileCount || 0;
-        }
-        
-      } catch (e) {
-        console.error('Refresh error:', e);
-      }
-    }
-    
-    refresh();
-    setInterval(refresh, 2000);
-  </script>
-</body>
-</html>
-      `);
-    } else {
-      res.writeHead(404);
-      res.end('Not Found');
-    }
+    // 404
+    res.writeHead(404);
+    res.end('Not Found');
   });
   
   // Create WebSocket server
@@ -357,44 +249,38 @@ async function main(): Promise<void> {
   
   // Start HTTP/WS server
   httpServer.listen(config.port, '0.0.0.0', () => {
-    console.log(`✅ WebSocket server listening on port ${config.port}`);
+    console.log(`✅ Server listening on port ${config.port}`);
+    console.log(`🌐 Dashboard: http://localhost:${config.port}`);
     console.log();
-  });
-  
-  // Start mDNS advertisement
-  const bonjour = new Bonjour.default();
-  
-  const service = bonjour.publish({
-    name: config.serviceName,
-    type: 'audiowallet',
-    port: config.port,
-    txt: {
-      v: '1',
-      room: config.roomName,
-      relay: '1',
-    },
-  });
-  
-  service.on('up', () => {
-    printMdnsInfo();
-    printInstructions();
-    console.log('🎉 Venue host is ready! Waiting for connections...');
-    console.log('   Press Ctrl+C to stop\n');
-  });
-  
-  service.on('error', (error: Error) => {
-    console.error('mDNS advertisement error:', error.message);
+    
+    // Start mDNS if room exists
+    const room = hostState.getRoom();
+    if (room) {
+      startMdns(room);
+    } else {
+      console.log('⚠️  No room configured yet. Create one in the dashboard.');
+    }
+    
+    console.log('📱 Instructions:');
+    console.log('   1. Open dashboard in browser');
+    console.log('   2. Create a room name');
+    console.log('   3. Upload audio files');
+    console.log('   4. Connect phones to join and download');
+    console.log();
+    console.log('🔑 Admin token:', hostState.getAdminToken().substring(0, 8) + '...');
+    console.log();
+    
+    // Open browser
+    setTimeout(() => {
+      openBrowser(`http://localhost:${config.port}`);
+    }, 500);
   });
   
   // Graceful shutdown
   const shutdown = (): void => {
     console.log('\n🛑 Shutting down...');
     
-    service.stop(() => {
-      console.log('   mDNS service stopped');
-    });
-    
-    bonjour.destroy();
+    stopMdns();
     
     wss.close(() => {
       console.log('   WebSocket server closed');
@@ -421,7 +307,7 @@ async function main(): Promise<void> {
     if (stats.peerCount > 0) {
       console.log(
         `📊 Stats: ${stats.peerCount} peers, ` +
-        `${stats.defaultRoom.fileCount} files, ` +
+        `${stats.defaultRoom?.fileCount || 0} files, ` +
         `${stats.activeTransfers} active transfers`
       );
     }
@@ -433,4 +319,3 @@ main().catch((error) => {
   console.error('Fatal error:', error);
   process.exit(1);
 });
-

@@ -4,7 +4,7 @@
  * Handles uploading and downloading files through the venue host WebSocket.
  */
 
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { nanoid } from 'nanoid/non-secure';
 import { VenueMessageType, VenueSharedFile } from './types';
 

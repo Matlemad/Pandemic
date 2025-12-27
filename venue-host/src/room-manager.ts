@@ -27,6 +27,9 @@ export class RoomManager {
   // Active transfers
   private transfers: Map<string, RelayTransfer> = new Map();
   
+  // Host files (from venue host dashboard)
+  private hostFiles: Map<string, SharedFileMeta> = new Map();
+  
   // Cleanup interval
   private cleanupInterval: NodeJS.Timeout | null = null;
   
@@ -44,6 +47,47 @@ export class RoomManager {
     
     // Start cleanup interval
     this.startCleanup();
+  }
+  
+  // ============================================================================
+  // HOST FILES
+  // ============================================================================
+  
+  setHostFiles(files: Array<{ id: string; title: string; artist?: string; fileName: string; size: number; mimeType: string; sha256: string; pathOnDisk: string }>): void {
+    this.hostFiles.clear();
+    for (const f of files) {
+      this.hostFiles.set(f.id, {
+        id: f.id,
+        title: f.title,
+        artist: f.artist,
+        album: undefined,
+        duration: undefined,
+        size: f.size,
+        mimeType: f.mimeType,
+        sha256: f.sha256,
+        ownerPeerId: 'venue-host',
+        ownerName: 'Venue Host',
+        addedAt: Date.now(),
+        // Store path for relay
+        pathOnDisk: f.pathOnDisk,
+      } as SharedFileMeta & { pathOnDisk: string });
+    }
+    console.log(`[RoomManager] Host files updated: ${files.length} files`);
+  }
+  
+  getHostFile(fileId: string): (SharedFileMeta & { pathOnDisk?: string }) | null {
+    return this.hostFiles.get(fileId) as any || null;
+  }
+  
+  updateDefaultRoom(name: string, id?: string): void {
+    const room = this.rooms.get(this.defaultRoomId);
+    if (room) {
+      room.roomName = name;
+      if (id) {
+        room.roomId = id;
+      }
+      room.updatedAt = Date.now();
+    }
   }
   
   // ============================================================================
@@ -212,6 +256,13 @@ export class RoomManager {
   
   getRoomFiles(roomId: string): SharedFileMeta[] {
     const files: SharedFileMeta[] = [];
+    
+    // Add host files first
+    for (const file of this.hostFiles.values()) {
+      files.push(file);
+    }
+    
+    // Add guest files
     for (const peer of this.peers.values()) {
       if (peer.roomId === roomId) {
         for (const file of peer.sharedFiles.values()) {
@@ -223,6 +274,11 @@ export class RoomManager {
   }
   
   getFile(fileId: string): SharedFileMeta | null {
+    // Check host files first
+    const hostFile = this.hostFiles.get(fileId);
+    if (hostFile) return hostFile;
+    
+    // Check peer files
     for (const peer of this.peers.values()) {
       const file = peer.sharedFiles.get(fileId);
       if (file) return file;
@@ -231,12 +287,21 @@ export class RoomManager {
   }
   
   getFileOwner(fileId: string): VenuePeer | null {
+    // Host files are owned by "venue-host" (no peer)
+    if (this.hostFiles.has(fileId)) {
+      return null; // Special case: handled separately
+    }
+    
     for (const peer of this.peers.values()) {
       if (peer.sharedFiles.has(fileId)) {
         return peer;
       }
     }
     return null;
+  }
+  
+  isHostFile(fileId: string): boolean {
+    return this.hostFiles.has(fileId);
   }
   
   // ============================================================================
@@ -249,9 +314,10 @@ export class RoomManager {
     requesterPeerId: string,
     size: number,
     mimeType: string,
-    sha256: string
+    sha256: string,
+    clientTransferId?: string // Use client's transferId if provided
   ): RelayTransfer {
-    const transferId = nanoid(12);
+    const transferId = clientTransferId || nanoid(12);
     const transfer: RelayTransfer = {
       transferId,
       fileId,

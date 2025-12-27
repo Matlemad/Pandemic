@@ -54,6 +54,9 @@ export class VenueLanTransport {
   private sharedFiles: Map<string, VenueSharedFile> = new Map();
   private roomPeers: Map<string, VenuePeer> = new Map();
   
+  // Local files that we're sharing (fileId -> localUri)
+  private localFileUris: Map<string, { uri: string; size: number; mimeType: string }> = new Map();
+  
   // Callbacks
   private onConnectionStateChange: ((state: VenueConnectionState) => void) | null = null;
   private onRoomJoined: ((info: VenueRoomInfo) => void) | null = null;
@@ -142,6 +145,7 @@ export class VenueLanTransport {
       console.log('[VenueLan] Connecting to:', wsUrl);
 
       this.ws = new WebSocket(wsUrl);
+      this.ws.binaryType = 'arraybuffer'; // Required for receiving binary chunks
 
       this.ws.onopen = () => {
         console.log('[VenueLan] WebSocket connected');
@@ -204,7 +208,9 @@ export class VenueLanTransport {
   // ============================================================================
 
   private handleMessage(event: MessageEvent): void {
+    // Check for binary data (file chunks)
     if (event.data instanceof ArrayBuffer) {
+      console.log('[VenueLan] Received binary chunk:', event.data.byteLength, 'bytes');
       venueRelay.handleBinaryChunk(event.data);
       return;
     }
@@ -248,8 +254,21 @@ export class VenueLanTransport {
 
       case VenueMessageType.TRANSFER_START:
       case VenueMessageType.TRANSFER_PROGRESS:
-      case VenueMessageType.TRANSFER_COMPLETE:
         // Handled by venueRelay
+        break;
+        
+      case VenueMessageType.TRANSFER_COMPLETE:
+        // A download completed
+        venueRelay.handleTransferComplete(message.transferId, message.sha256 || '');
+        break;
+        
+      case VenueMessageType.RELAY_PULL:
+        // Someone requested a file we own - we need to upload it
+        this.handleIncomingRelayPull(message);
+        break;
+        
+      case VenueMessageType.RELAY_ERROR:
+        venueRelay.handleTransferError(message.transferId, message.error || 'Unknown error');
         break;
 
       case VenueMessageType.ERROR:
@@ -341,6 +360,52 @@ export class VenueLanTransport {
     this.onDisconnected?.();
   }
 
+  /**
+   * Handle incoming relay pull request - someone wants a file we own
+   */
+  private async handleIncomingRelayPull(message: any): Promise<void> {
+    const { fileId, transferId } = message;
+    
+    console.log('[VenueLan] Received RELAY_PULL for file:', fileId, 'transfer:', transferId);
+    
+    // Find the file in our local files
+    const localFile = this.localFileUris.get(fileId);
+    if (!localFile) {
+      console.error('[VenueLan] File not found locally:', fileId);
+      this.send({
+        type: VenueMessageType.RELAY_ERROR,
+        transferId,
+        error: 'File not found locally',
+        ts: Date.now(),
+      });
+      return;
+    }
+    
+    // Upload the file via relay
+    console.log('[VenueLan] Starting upload for relay:', localFile.uri);
+    
+    try {
+      await venueRelay.uploadFile(
+        this.ws!,
+        transferId,
+        fileId,
+        localFile.uri,
+        {
+          size: localFile.size,
+          mimeType: localFile.mimeType,
+          sha256: '', // TODO: Calculate hash
+        },
+        (progress) => {
+          console.log('[VenueLan] Upload progress:', progress.progress, '%');
+        }
+      );
+      
+      console.log('[VenueLan] Upload complete for relay');
+    } catch (error: any) {
+      console.error('[VenueLan] Upload failed:', error);
+    }
+  }
+
   // ============================================================================
   // FILE SHARING
   // ============================================================================
@@ -350,6 +415,29 @@ export class VenueLanTransport {
     this.send({
       type: VenueMessageType.SHARE_FILES,
       files,
+      ts: Date.now(),
+    });
+  }
+  
+  /**
+   * Share files with local URIs so we can upload them when requested
+   */
+  shareFilesWithLocalUri(files: Array<VenueSharedFile & { localUri: string }>): void {
+    console.log('[VenueLan] Sharing files with local URIs:', files.length, files.map(f => f.title));
+    
+    // Store local file info for later uploads
+    for (const file of files) {
+      this.localFileUris.set(file.id, {
+        uri: file.localUri,
+        size: file.size,
+        mimeType: file.mimeType,
+      });
+    }
+    
+    // Send to venue host (without localUri)
+    this.send({
+      type: VenueMessageType.SHARE_FILES,
+      files: files.map(({ localUri, ...rest }) => rest),
       ts: Date.now(),
     });
   }
@@ -409,6 +497,10 @@ export class VenueLanTransport {
 
   getRoomPeers(): VenuePeer[] {
     return Array.from(this.roomPeers.values());
+  }
+
+  getWebSocket(): WebSocket | null {
+    return this.ws;
   }
 
   // ============================================================================

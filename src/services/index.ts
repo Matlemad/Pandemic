@@ -13,6 +13,7 @@ export { p2pRoomServiceAdapter as roomService } from './P2PRoomServiceAdapter';
 
 // Audio library
 export { audioLibraryService } from './AudioLibraryService';
+export { audioPlaybackService } from './AudioPlaybackService';
 
 // Legacy services (deprecated, kept for reference)
 export { bleService } from './BleService';

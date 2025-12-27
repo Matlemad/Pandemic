@@ -23,7 +23,10 @@ import { useTransferStore } from '../src/stores/transferStore';
 import { useAppStore } from '../src/stores/appStore';
 import roomService from '../src/services/RoomService';
 import { venueLanTransport } from '../src/venue/transport';
-import { RoomRole, SharedFileMetadata, TransferDirection, TransportMode } from '../src/types';
+import { venueRelay } from '../src/venue/relay';
+import { useLibraryStore } from '../src/stores/libraryStore';
+import { RoomRole, SharedFileMetadata, TransferDirection, TransportMode, AudioFormat } from '../src/types';
+import { documentDirectory, getInfoAsync, makeDirectoryAsync, writeAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { Colors, Spacing, BorderRadius, Typography } from '../src/constants/theme';
 
 type TabType = 'files' | 'transfers' | 'peers';
@@ -156,8 +159,12 @@ export default function RoomScreen() {
     );
   };
 
-  const handleDownloadFile = (file: SharedFileMetadata) => {
-    // Start simulated transfer
+  const handleDownloadFile = async (file: SharedFileMetadata) => {
+    // Check if connected to venue
+    const ws = venueLanTransport.getWebSocket?.();
+    const isVenueDownload = isVenueModeCheck && ws && ws.readyState === WebSocket.OPEN;
+    
+    // Start transfer in UI
     const transferId = startTransfer({
       fileId: file.fileId,
       fileName: file.fileName,
@@ -169,21 +176,110 @@ export default function RoomScreen() {
       transportMode: TransportMode.WIFI_LAN,
     });
 
-    // Simulate progress
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += Math.random() * 15;
-      if (progress >= 100) {
-        clearInterval(interval);
-        completeTransfer(transferId);
-      } else {
-        updateProgress(
-          transferId,
-          Math.floor((progress / 100) * file.sizeBytes),
-          Math.random() * 500000 + 100000 // Random speed
-        );
-      }
-    }, 500);
+    if (isVenueDownload) {
+      // Real download via venue relay
+      console.log('[Room] Starting real download via venue relay:', file.fileName);
+      
+      // Derive mimeType from format
+      const mimeType = file.format === AudioFormat.MP3 ? 'audio/mpeg' 
+        : file.format === AudioFormat.AAC ? 'audio/aac'
+        : file.format === AudioFormat.FLAC ? 'audio/flac'
+        : file.format === AudioFormat.WAV ? 'audio/wav'
+        : 'audio/mpeg';
+      
+      venueRelay.requestDownload(
+        ws,
+        file.fileId,
+        {
+          size: file.sizeBytes,
+          mimeType,
+          sha256: '', // Will be verified later
+        },
+        // Progress callback
+        (progress) => {
+          console.log('[Room] Download progress:', progress.progress, '%');
+          updateProgress(transferId, progress.bytesTransferred, 500000);
+        },
+        // Complete callback
+        async (data) => {
+          console.log('[Room] Download complete, saving to library...');
+          
+          try {
+            // Ensure library directory exists
+            const libraryDir = `${documentDirectory}library/`;
+            const dirInfo = await getInfoAsync(libraryDir);
+            if (!dirInfo.exists) {
+              await makeDirectoryAsync(libraryDir, { intermediates: true });
+            }
+            
+            // Save file
+            const safeFileName = file.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const fileUri = `${libraryDir}${safeFileName}`;
+            
+            // Convert Uint8Array to base64 in chunks to avoid stack overflow
+            const uint8ArrayToBase64 = (bytes: Uint8Array): string => {
+              const CHUNK_SIZE = 8192;
+              let binary = '';
+              for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+                const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, bytes.length));
+                binary += String.fromCharCode.apply(null, Array.from(chunk));
+              }
+              return btoa(binary);
+            };
+            
+            const base64 = uint8ArrayToBase64(data);
+            await writeAsStringAsync(fileUri, base64, {
+              encoding: EncodingType.Base64,
+            });
+            
+            console.log('[Room] File saved to:', fileUri);
+            
+            // Add to library
+            const addTrack = useLibraryStore.getState().addTrack;
+            addTrack({
+              title: file.fileName.replace(/\.[^/.]+$/, ''), // Remove extension
+              artist: file.ownerName,
+              durationMs: (file.duration || 0) * 1000,
+              mimeType,
+              localUri: fileUri,
+              source: 'downloaded',
+            });
+            
+            console.log('[Room] Track added to library');
+            
+            completeTransfer(transferId);
+            Alert.alert('Download completato', `"${file.fileName}" è stato aggiunto alla tua libreria.`);
+          } catch (error: any) {
+            console.error('[Room] Failed to save downloaded file:', error);
+            cancelTransfer(transferId);
+            Alert.alert('Errore', 'Impossibile salvare il file scaricato.');
+          }
+        },
+        // Error callback
+        (error) => {
+          console.error('[Room] Download error:', error);
+          cancelTransfer(transferId);
+          Alert.alert('Errore download', error);
+        }
+      );
+    } else {
+      // Fallback: simulate progress (for non-venue mode)
+      console.log('[Room] Simulating download (not in venue mode)');
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress >= 100) {
+          clearInterval(interval);
+          completeTransfer(transferId);
+        } else {
+          updateProgress(
+            transferId,
+            Math.floor((progress / 100) * file.sizeBytes),
+            Math.random() * 500000 + 100000 // Random speed
+          );
+        }
+      }, 500);
+    }
   };
 
   const handleShareFiles = () => {

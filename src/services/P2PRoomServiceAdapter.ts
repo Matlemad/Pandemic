@@ -145,7 +145,7 @@ class P2PRoomServiceAdapter {
     const p2pRoom: DiscoveredRoom = {
       roomId: room.roomId,
       roomName: room.roomName,
-      hostPeerId: room.hostPeerId,
+      hostPeerId: room.hostId, // Map from legacy hostId to hostPeerId
       hostName: room.hostName,
       peerCount: room.peerCount,
       createdAt: room.createdAt || Date.now(),
@@ -201,7 +201,7 @@ class P2PRoomServiceAdapter {
 
     // Check if we're in venue mode
     if (this.isVenueMode()) {
-      // Share via Venue LAN transport
+      // Share via Venue LAN transport with local URIs for relay
       const venueFiles = files.map((file) => ({
         id: file.id,
         title: file.title,
@@ -214,9 +214,10 @@ class P2PRoomServiceAdapter {
         ownerPeerId: deviceId,
         ownerName: deviceName,
         addedAt: Date.now(),
+        localUri: file.localPath, // Include local path for relay uploads
       }));
       
-      venueLanTransport.shareFiles(venueFiles);
+      venueLanTransport.shareFilesWithLocalUri(venueFiles);
       
       // Update local store
       for (const file of files) {
@@ -224,13 +225,17 @@ class P2PRoomServiceAdapter {
         useRoomStore.getState().shareMyFile({
           fileId: file.id,
           fileName: file.title,
-          filePath: file.localPath,
+          title: file.title,
+          localPath: file.localPath,
           sizeBytes: file.size,
-          mimeType: file.mimeType,
-          durationSeconds: file.duration,
-          artist: file.artist,
-          album: file.album,
-          sha256: file.sha256,
+          format: this.getFormatFromMime(file.mimeType),
+          duration: file.duration || 0,
+          artist: file.artist ?? null,
+          album: file.album ?? null,
+          bitrate: null,
+          sampleRate: null,
+          addedAt: Date.now(),
+          checksum: file.sha256 || '',
         });
       }
       
@@ -253,13 +258,17 @@ class P2PRoomServiceAdapter {
       useRoomStore.getState().shareMyFile({
         fileId: file.id,
         fileName: file.title,
-        filePath: file.localPath,
+        title: file.title,
+        localPath: file.localPath,
         sizeBytes: file.size,
-        mimeType: file.mimeType,
-        durationSeconds: file.duration,
-        artist: file.artist,
-        album: file.album,
-        sha256: file.sha256,
+        format: this.getFormatFromMime(file.mimeType),
+        duration: file.duration || 0,
+        artist: file.artist ?? null,
+        album: file.album ?? null,
+        bitrate: null,
+        sampleRate: null,
+        addedAt: Date.now(),
+        checksum: file.sha256 || '',
       });
     }
   }
@@ -357,6 +366,8 @@ class P2PRoomServiceAdapter {
     const peerInfo: PeerInfo = {
       peerId: peer.peerId,
       peerName: peer.displayName,
+      address: null,
+      joinedAt: Date.now(),
       sharedFileCount: peer.sharedFileCount,
       isOnline: true,
     };
@@ -368,20 +379,32 @@ class P2PRoomServiceAdapter {
   }
 
   private handleFilesUpdated(files: SharedFile[]): void {
+    const deviceId = useAppStore.getState().deviceId;
     const sharedFiles: SharedFileMetadata[] = files.map(f => ({
       fileId: f.id,
       fileName: f.title,
+      title: f.title,
+      artist: f.artist ?? null,
+      album: f.album ?? null,
+      duration: f.duration || 0,
+      format: this.getFormatFromMime(f.mimeType),
       sizeBytes: f.size,
-      mimeType: f.mimeType,
-      durationSeconds: f.duration,
-      artist: f.artist,
-      album: f.album,
-      sha256: f.sha256,
+      bitrate: null,
+      sampleRate: null,
+      localPath: '',
+      addedAt: f.addedAt,
+      checksum: f.sha256,
       ownerId: f.ownerPeerId,
       ownerName: f.ownerName,
-      addedAt: f.addedAt,
+      ownerAddress: null,
+      isSharedByMe: f.ownerPeerId === deviceId,
     }));
     useRoomStore.getState().updateSharedFiles(sharedFiles);
+  }
+
+  private getFormatFromMime(mimeType: string): any {
+    const ext = mimeType.split('/')[1]?.toLowerCase();
+    return ext || 'mp3';
   }
 
   private handleFileRequest(fileId: string, fromPeerId: string): void {
@@ -429,7 +452,7 @@ class P2PRoomServiceAdapter {
       return;
     }
 
-    // Save to library
+    // Save to library (FileStorageService)
     const localFile = await fileStorageService.saveReceivedFile(file.tempFilePath, {
       title: file.meta.fileName,
       mimeType: file.meta.mimeType,
@@ -437,6 +460,20 @@ class P2PRoomServiceAdapter {
 
     if (localFile) {
       console.log('[P2PAdapter] File saved to library:', localFile.title);
+      
+      // Also add to LibraryStore for unified library management
+      const { useLibraryStore } = await import('../stores/libraryStore');
+      await useLibraryStore.getState().addTrack({
+        title: localFile.title,
+        artist: localFile.artist,
+        durationMs: localFile.duration ? localFile.duration * 1000 : undefined,
+        mimeType: localFile.mimeType,
+        localUri: localFile.localPath,
+        source: 'downloaded',
+        size: localFile.size,
+        sha256: localFile.sha256,
+      });
+      console.log('[P2PAdapter] Added to LibraryStore:', localFile.title);
     }
 
     // Complete transfer
@@ -455,8 +492,9 @@ class P2PRoomServiceAdapter {
     return {
       roomId: room.roomId,
       roomName: room.roomName,
-      hostPeerId: room.hostPeerId,
+      hostId: room.hostPeerId, // Map from P2P hostPeerId to legacy hostId
       hostName: room.hostName,
+      hostAddress: null,
       createdAt: room.createdAt,
       wifiAvailable: true, // P2P doesn't distinguish
       peerCount: room.peers.length,
@@ -467,8 +505,10 @@ class P2PRoomServiceAdapter {
     return {
       roomId: room.roomId,
       roomName: room.roomName,
-      hostPeerId: room.hostPeerId,
+      hostId: room.hostPeerId, // Map from P2P hostPeerId to legacy hostId
       hostName: room.hostName,
+      hostAddress: null,
+      wifiAvailable: true,
       peerCount: room.peerCount,
       createdAt: room.createdAt,
       lastSeen: room.lastSeen,

@@ -3,8 +3,10 @@
  */
 
 import { WebSocket, RawData } from 'ws';
+import { readFileSync } from 'fs';
 import { nanoid } from 'nanoid';
 import { RoomManager } from './room-manager.js';
+import { hostState } from './host-state.js';
 import {
   VenueMessageType,
   VenueHostConfig,
@@ -340,6 +342,13 @@ export class WebSocketHandler {
       return;
     }
     
+    // Check room lock
+    if (hostState.isRoomLocked()) {
+      console.log(`[WS] SHARE_FILES rejected: room is locked`);
+      this.sendError(ws, 'ROOM_LOCKED', 'Room is locked: only host can share files.');
+      return;
+    }
+    
     const parsed = ShareFilesMessageSchema.safeParse(message);
     if (!parsed.success) {
       console.error('[WS] Invalid SHARE_FILES:', parsed.error.errors);
@@ -371,6 +380,12 @@ export class WebSocketHandler {
   private handleUnshareFiles(ws: WebSocket, message: unknown): void {
     const peerId = this.wsPeerMap.get(ws);
     if (!peerId) return;
+    
+    // Check room lock
+    if (hostState.isRoomLocked()) {
+      this.sendError(ws, 'ROOM_LOCKED', 'Room is locked: only host can modify files.');
+      return;
+    }
     
     const parsed = UnshareFilesMessageSchema.safeParse(message);
     if (!parsed.success) return;
@@ -436,33 +451,42 @@ export class WebSocketHandler {
     
     const { fileId, transferId } = parsed.data;
     
-    // Find file and owner
+    // Find file
     const file = this.roomManager.getFile(fileId);
     if (!file) {
       this.sendError(ws, 'FILE_NOT_FOUND', 'File not found');
       return;
     }
     
+    // Check if this is a host file
+    if (this.roomManager.isHostFile(fileId)) {
+      // Host file - serve directly from disk
+      this.serveHostFile(ws, fileId, transferId, requesterPeerId);
+      return;
+    }
+    
+    // Guest file - find owner
     const owner = this.roomManager.getFileOwner(fileId);
     if (!owner) {
       this.sendError(ws, 'OWNER_OFFLINE', 'File owner is offline');
       return;
     }
     
-    // Create transfer tracking
+    // Create transfer tracking - use the client's transferId to ensure chunks are recognized
     const transfer = this.roomManager.createTransfer(
       fileId,
       owner.peerId,
       requesterPeerId,
       file.size,
       file.mimeType,
-      file.sha256
+      file.sha256,
+      transferId // Pass the client's transferId
     );
     
     // Notify requester that transfer is starting
     this.send(ws, {
       type: VenueMessageType.TRANSFER_START,
-      transferId: transfer.transferId,
+      transferId, // Use the original client transferId
       fileId,
       size: file.size,
       mimeType: file.mimeType,
@@ -480,6 +504,82 @@ export class WebSocketHandler {
     
     this.roomManager.setTransferState(transfer.transferId, 'uploading');
     console.log(`[WS] Relay transfer initiated: ${transfer.transferId}`);
+  }
+  
+  private async serveHostFile(ws: WebSocket, fileId: string, transferId: string, requesterPeerId: string): Promise<void> {
+    const hostFile = this.roomManager.getHostFile(fileId);
+    if (!hostFile || !hostFile.pathOnDisk) {
+      this.sendError(ws, 'FILE_NOT_FOUND', 'Host file not found');
+      return;
+    }
+    
+    console.log(`[WS] Serving host file: ${hostFile.title}`);
+    
+    // Create transfer
+    const transfer = this.roomManager.createTransfer(
+      fileId,
+      'venue-host',
+      requesterPeerId,
+      hostFile.size,
+      hostFile.mimeType,
+      hostFile.sha256,
+      transferId
+    );
+    
+    // Notify requester that transfer is starting
+    this.send(ws, {
+      type: VenueMessageType.TRANSFER_START,
+      transferId,
+      fileId,
+      size: hostFile.size,
+      mimeType: hostFile.mimeType,
+      ts: Date.now(),
+    });
+    
+    this.roomManager.setTransferState(transferId, 'uploading');
+    
+    try {
+      // Read file and send chunks
+      const fileBuffer = readFileSync(hostFile.pathOnDisk);
+      const CHUNK_SIZE = 64 * 1024;
+      let offset = 0;
+      
+      while (offset < fileBuffer.length) {
+        const chunk = fileBuffer.slice(offset, offset + CHUNK_SIZE);
+        
+        // Create binary frame: [transferIdLen (4 bytes)][transferId][chunk]
+        const transferIdBytes = Buffer.from(transferId, 'utf-8');
+        const frame = Buffer.alloc(4 + transferIdBytes.length + chunk.length);
+        frame.writeUInt32BE(transferIdBytes.length, 0);
+        transferIdBytes.copy(frame, 4);
+        chunk.copy(frame, 4 + transferIdBytes.length);
+        
+        ws.send(frame);
+        
+        offset += chunk.length;
+        this.roomManager.updateTransferProgress(transferId, offset);
+        
+        // Small delay to avoid overwhelming
+        await new Promise(r => setTimeout(r, 5));
+      }
+      
+      // Send completion
+      this.send(ws, {
+        type: VenueMessageType.TRANSFER_COMPLETE,
+        transferId,
+        fileId,
+        sha256: hostFile.sha256,
+        ts: Date.now(),
+      });
+      
+      this.roomManager.setTransferState(transferId, 'complete');
+      console.log(`[WS] Host file transfer complete: ${transferId}`);
+      
+    } catch (err: any) {
+      console.error(`[WS] Failed to serve host file:`, err);
+      this.sendError(ws, 'TRANSFER_ERROR', err.message);
+      this.roomManager.setTransferState(transferId, 'error');
+    }
   }
   
   private handleRelayPushMeta(ws: WebSocket, message: unknown): void {
