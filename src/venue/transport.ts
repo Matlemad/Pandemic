@@ -24,6 +24,8 @@ interface VenueSharedFile {
   sha256: string;
   ownerPeerId: string;
   ownerName: string;
+  duration?: number;
+  addedAt?: number;
 }
 
 interface VenueRoomInfo {
@@ -100,6 +102,13 @@ export class VenueLanTransport {
 
   setOnPeerJoined(callback: (peer: VenuePeer) => void): void {
     this.onPeerJoined = callback;
+    // Immediately call with existing peers if any
+    if (this.roomPeers.size > 0) {
+      console.log('[VenueLan] Calling onPeerJoined immediately for', this.roomPeers.size, 'existing peers');
+      for (const peer of this.roomPeers.values()) {
+        callback(peer);
+      }
+    }
   }
 
   setOnPeerLeft(callback: (peerId: string) => void): void {
@@ -108,6 +117,11 @@ export class VenueLanTransport {
 
   setOnFilesUpdated(callback: (files: VenueSharedFile[]) => void): void {
     this.onFilesUpdated = callback;
+    // Immediately call with existing files if any
+    if (this.sharedFiles.size > 0) {
+      console.log('[VenueLan] Calling onFilesUpdated immediately with', this.sharedFiles.size, 'existing files');
+      callback(Array.from(this.sharedFiles.values()));
+    }
   }
 
   setOnDisconnected(callback: () => void): void {
@@ -201,6 +215,7 @@ export class VenueLanTransport {
     this.currentRoomId = null;
     this.roomPeers.clear();
     this.sharedFiles.clear();
+    this.localFileUris.clear();
   }
 
   // ============================================================================

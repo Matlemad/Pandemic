@@ -187,6 +187,21 @@ const routes: AdminRoute[] = [
     },
   },
 
+  // Close room
+  {
+    method: 'DELETE',
+    path: '/admin/room',
+    handler: async (_req, res) => {
+      const success = hostState.closeRoom();
+      if (!success) {
+        sendError(res, 'No room to close');
+        return;
+      }
+      
+      sendJson(res, { success: true, message: 'Room closed' });
+    },
+  },
+
   // Upload files
   {
     method: 'POST',

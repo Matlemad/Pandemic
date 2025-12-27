@@ -168,6 +168,11 @@ async function main(): Promise<void> {
       roomManager.updateDefaultRoom(state.room.name, state.room.id);
       roomManager.setHostFiles(state.hostFiles);
       updateMdns(state.room);
+    } else {
+      // Room closed - stop mDNS and clear host files
+      stopMdns();
+      roomManager.setHostFiles([]);
+      console.log('[Host] Room closed, mDNS stopped');
     }
   });
   

@@ -236,19 +236,21 @@ export default function RoomScreen() {
             
             // Add to library
             const addTrack = useLibraryStore.getState().addTrack;
+            // Use file.title if available, otherwise extract from fileName
+            const trackTitle = file.title || file.fileName.replace(/\.[^/.]+$/, '');
             addTrack({
-              title: file.fileName.replace(/\.[^/.]+$/, ''), // Remove extension
-              artist: file.ownerName,
+              title: trackTitle,
+              artist: file.ownerName === 'Venue Host' ? undefined : file.ownerName,
               durationMs: (file.duration || 0) * 1000,
               mimeType,
               localUri: fileUri,
               source: 'downloaded',
             });
             
-            console.log('[Room] Track added to library');
+            console.log('[Room] Track added to library:', trackTitle);
             
             completeTransfer(transferId);
-            Alert.alert('Download completato', `"${file.fileName}" è stato aggiunto alla tua libreria.`);
+            Alert.alert('Download completato', `"${trackTitle}" è stato aggiunto alla tua libreria.`);
           } catch (error: any) {
             console.error('[Room] Failed to save downloaded file:', error);
             cancelTransfer(transferId);

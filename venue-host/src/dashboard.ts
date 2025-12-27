@@ -150,6 +150,11 @@ export function getDashboardHtml(port: number): string {
     }
     .btn-secondary:hover { background: rgba(255,255,255,0.15); }
     .btn-danger {
+      background: #dc3545;
+      color: #fff;
+    }
+    .btn-danger:hover { background: #c82333; }
+    .btn-danger {
       background: rgba(255,100,100,0.2);
       color: #ff6464;
     }
@@ -305,6 +310,7 @@ export function getDashboardHtml(port: number): string {
         
         <div style="margin-top: 20px; display: flex; gap: 10px;">
           <button id="saveRoomBtn" class="btn btn-primary" onclick="saveRoom()">Create Room</button>
+          <button id="closeRoomBtn" class="btn btn-danger" onclick="closeRoom()" style="display: none;">Close Room</button>
         </div>
         
         <div id="roomStatus" style="margin-top: 16px; font-size: 13px; color: #666;"></div>
@@ -422,10 +428,14 @@ export function getDashboardHtml(port: number): string {
         isLocked = currentState.room.locked;
         document.getElementById('lockToggle').className = 'toggle' + (isLocked ? ' on' : '');
         document.getElementById('saveRoomBtn').textContent = 'Update Room';
+        document.getElementById('closeRoomBtn').style.display = 'inline-block';
         document.getElementById('roomStatus').innerHTML = '✅ Room active: <strong>' + currentState.room.name + '</strong>' + (isLocked ? ' (Locked)' : '');
         document.getElementById('mdnsStatus').className = 'status-badge status-online';
         document.getElementById('mdnsStatus').textContent = '● mDNS Active';
       } else {
+        document.getElementById('roomName').value = '';
+        document.getElementById('saveRoomBtn').textContent = 'Create Room';
+        document.getElementById('closeRoomBtn').style.display = 'none';
         document.getElementById('roomStatus').innerHTML = '⚠️ No room created yet';
         document.getElementById('mdnsStatus').className = 'status-badge status-offline';
         document.getElementById('mdnsStatus').textContent = '○ mDNS Off';
@@ -480,6 +490,20 @@ export function getDashboardHtml(port: number): string {
         } catch (e) {
           log('Failed to update lock: ' + e.message, 'error');
         }
+      }
+    }
+    
+    async function closeRoom() {
+      if (!confirm('Are you sure you want to close this room? All connected peers will be disconnected.')) {
+        return;
+      }
+      
+      try {
+        await api('DELETE', '/admin/room');
+        log('Room closed', 'info');
+        await refreshState();
+      } catch (e) {
+        log('Failed to close room: ' + e.message, 'error');
       }
     }
     

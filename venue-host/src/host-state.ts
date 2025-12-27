@@ -193,6 +193,16 @@ class HostStateManager {
     return this.state.room;
   }
 
+  closeRoom(): boolean {
+    if (!this.state.room) return false;
+
+    console.log(`[HostState] Closing room: ${this.state.room.name}`);
+    this.state.room = null;
+    this.saveState();
+    this.notifyChange();
+    return true;
+  }
+
   getRoom(): HostRoom | null {
     return this.state.room;
   }
