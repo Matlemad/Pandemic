@@ -306,15 +306,23 @@ npm run dev
 ```
 
 **2. Monitora la Dashboard:**
-Apri http://localhost:8787 per vedere peers e file in tempo reale.
+Apri http://localhost:8787 per:
+- Creare/gestire la room (nome, lock, close)
+- Caricare file audio come host (Host Library)
+- Monitorare peers e file in tempo reale
+- Vedere trasferimenti attivi
 
 **3. Sui device mobili:**
 1. Connettiti alla stessa rete Wi-Fi del Venue Host
 2. Apri l'app → "Trova Stanze"
 3. Cerca in "Venue Rooms (Wi-Fi Cross-Platform)"
 4. Tocca la room del venue host per entrare
-5. Vai in Library → Seleziona file → "Condividi"
-6. I file appaiono su tutti i device connessi
+5. Vedi immediatamente:
+   - Tutti i peer connessi
+   - File host (se caricati nella dashboard)
+   - File condivisi da altri peer
+6. Per condividere: "+ Add" → Library → Seleziona file → "Condividi"
+7. Per scaricare: Tocca il pulsante download → File salvato in Library automaticamente
 
 **Fallback connessione manuale:**
 Se mDNS non funziona (reti con AP isolation, Android 11):
@@ -322,6 +330,28 @@ Se mDNS non funziona (reti con AP isolation, Android 11):
 - Inserisci IP del laptop (es. `192.168.1.5`) e porta (`8787`)
 
 📖 Dettagli completi in [P2P_README.md](./P2P_README.md)
+
+### Audio Library 🎵
+
+La **Libreria Audio** è il punto centrale per gestire i tuoi file audio:
+
+**Funzionalità:**
+- **Import da dispositivo**: Importa file audio dalla memoria locale del device
+- **Download automatico**: I file scaricati dalle room vengono salvati automaticamente
+- **Riordinamento**: Riordina i brani manualmente (frecce ▲/▼)
+- **Playback singolo**: Tocca un brano per riprodurlo
+- **Playlist sequenziale**: Usa il player globale in basso per riprodurre in ordine
+- **Persistenza**: Tutti i file e l'ordine vengono salvati tra riavvii
+
+**Accesso:**
+- Dalla Home: Tocca "La tua Libreria"
+- Dalla Room: Tocca "+ Add" → si apre la Library (non il file picker del sistema)
+- I file condivisi vengono selezionati dalla Library
+
+**Player globale:**
+- Barra player fissa in basso con controlli Play/Pause, Next, Previous
+- Auto-avanzamento: quando un brano finisce, parte il successivo
+- Progress bar e informazioni brano corrente
 
 ---
 
@@ -357,12 +387,16 @@ pandemic/
 │   ├── host.tsx           # Create room
 │   ├── join.tsx           # Find rooms
 │   ├── room.tsx           # Active room
-│   ├── library.tsx        # Audio library
+│   ├── library.tsx        # Audio library (import, playback, reorder)
 │   └── settings.tsx       # Settings
 ├── src/
 │   ├── components/        # UI components
 │   ├── services/          # Business logic
+│   │   ├── AudioLibraryService.ts  # Library management
+│   │   ├── AudioPlaybackService.ts # Playback control
+│   │   └── P2PRoomServiceAdapter.ts # P2P/Venue adapter
 │   ├── stores/            # Zustand stores
+│   │   └── libraryStore.ts # Audio library state
 │   ├── p2p/               # Native P2P transport (Nearby/Multipeer)
 │   │   ├── transport.base.ts   # Abstract interface
 │   │   ├── transport.android.ts
@@ -378,10 +412,13 @@ pandemic/
 │   └── constants/         # Theme & constants
 ├── venue-host/            # 🌐 Local LAN host (Node.js)
 │   ├── src/
-│   │   ├── index.ts       # Entry + HTTP dashboard
+│   │   ├── index.ts       # Entry + HTTP server
 │   │   ├── types.ts       # Zod schemas
-│   │   ├── room-manager.ts
-│   │   └── ws-handler.ts
+│   │   ├── room-manager.ts # Room & peer state
+│   │   ├── ws-handler.ts   # WebSocket protocol
+│   │   ├── host-state.ts   # Persistent state (room, files)
+│   │   ├── dashboard.ts    # Web dashboard HTML
+│   │   └── admin-api.ts   # REST API for dashboard
 │   ├── package.json
 │   └── README.md
 ├── ios/                   # Native iOS modules
@@ -429,12 +466,17 @@ L'interfaccia è ispirata all'atmosfera di un warehouse party:
 - [x] Condivisione metadati
 - [x] Libreria audio locale
 
-### v1.1 - Cross-Platform 🚧
+### v1.1 - Cross-Platform ✅
 - [x] Venue Host (Node.js) per Android↔iOS
 - [x] mDNS discovery (Bonjour / NSD)
 - [x] WebSocket transport + file relay
 - [x] Dashboard web per monitoring
 - [x] Connessione manuale fallback
+- [x] Host Library (upload file dalla dashboard)
+- [x] Room management (create, lock, close)
+- [x] Sincronizzazione file migliorata (file visibili anche se caricati prima dell'ingresso)
+- [x] Audio Library con playback e riordinamento
+- [x] Download automatico in Library con titoli completi
 - [ ] Resume trasferimenti interrotti
 - [ ] Notifiche push locali
 

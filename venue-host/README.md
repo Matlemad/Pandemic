@@ -86,10 +86,26 @@ Open **http://localhost:8787** in your browser for a real-time dashboard:
 | 📊 Stats | Peer count, file count, active transfers |
 | 👥 Connected Peers | Device names, platforms, file counts |
 | 🎵 Shared Files | All files shared in the room with metadata |
+| 🏠 Room Setup | Create/update room name, toggle lock |
+| 🗑️ Close Room | Close the room and disconnect all peers |
+| 📤 Host Library | Upload audio files to share as host |
 | 🔄 Auto-refresh | Updates every 2 seconds |
+
+**Room Management:**
+- **Create Room**: Set a room name to start accepting connections
+- **Room Lock**: When locked, only the host can upload files (via dashboard)
+- **Close Room**: Stops mDNS advertisement and disconnects all peers
+
+**Host Library:**
+- Upload audio files directly from the dashboard
+- Files are automatically shared to all connected peers
+- Files persist across host restarts (saved to disk)
 
 Additional endpoints:
 - `GET /health` - JSON status for monitoring
+- `POST /admin/room` - Create/update room
+- `POST /admin/room/lock` - Toggle room lock
+- `DELETE /admin/room` - Close room
 
 ## Testing
 
@@ -106,11 +122,13 @@ Additional endpoints:
 - Ensure all devices are on the same Wi-Fi network
 - Check firewall isn't blocking port 8787
 - Some routers have "AP isolation" - try a different network
+- Make sure a room is created in the dashboard first
 
 **File transfers failing:**
 - Check MAX_FILE_MB limit
 - Ensure stable Wi-Fi connection
 - Look at host console logs for errors
+- Verify file owner is still connected
 
 **mDNS not working:**
 - On Linux, ensure avahi-daemon is running
@@ -118,6 +136,18 @@ Additional endpoints:
 - Older Android versions (11 and below) may have issues with mDNS
 - Use manual connection in app: "Connetti manualmente a Venue Host"
 - Find host IP with `ifconfig` (macOS/Linux) or `ipconfig` (Windows)
+
+**Files not visible when joining:**
+- Files are synchronized when you join a room
+- If files don't appear, try refreshing the app
+- Host files are always included in the index
+- Peer files are synchronized when they join or share
+
+**Files disappear when leaving/returning:**
+- This is expected behavior - files are session-based
+- Host files persist across sessions
+- Peer files are removed when they disconnect
+- Re-join the room to see current files
 
 ## Architecture
 

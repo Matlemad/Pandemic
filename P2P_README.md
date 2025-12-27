@@ -69,7 +69,15 @@ npx expo run:ios --device
 4. **Download Files**:
    - View shared files in Room screen
    - Tap download button
-   - Observe progress
+   - File is automatically saved to Library
+   - Full file title is preserved (not truncated)
+
+5. **Library Management**:
+   - Access Library from Home or Room ("+ Add" button)
+   - Import files from device storage
+   - Reorder tracks manually
+   - Play individual tracks or use playlist mode
+   - All files persist across app restarts
 
 ---
 
@@ -128,10 +136,20 @@ npm run build && npm start
 ### Web Dashboard
 
 Open **http://localhost:8787** in your browser to view:
-- 📊 Connected peers count
+- 📊 Connected peers count, file count, active transfers
+- 🏠 Room setup (create/update room name, toggle lock)
+- 🗑️ Close Room button (disconnects all peers, stops mDNS)
+- 📤 Host Library (upload audio files to share as host)
+- 👥 Connected peers list (device names, platforms, file counts)
 - 🎵 Shared files list (with metadata)
 - 📋 Real-time activity log
 - Auto-refreshes every 2 seconds
+
+**Room Management:**
+- Create a room name to start accepting connections
+- Toggle room lock to restrict file uploads to host only
+- Close room to stop mDNS and disconnect all peers
+- Host files persist across restarts (saved to disk)
 
 ### Manual Connection (Fallback)
 
@@ -140,6 +158,21 @@ If mDNS discovery doesn't work (AP isolation, older devices):
 2. In app: "Trova Stanze" → "📶 Connetti manualmente a Venue Host"
 3. Enter IP and port
 
+### File Synchronization
+
+**How it works:**
+- When you join a room, you immediately receive all existing files (host + peers)
+- Files shared before you join are visible when you enter
+- Host files persist across sessions (saved to disk)
+- Peer files are session-based (removed when peer disconnects)
+- When you leave and return, host files are still visible
+
+**Download behavior:**
+- Downloaded files are automatically saved to Library
+- Full file titles are preserved (e.g., "8. La Zanzara" not "8")
+- Files are saved to `<documentDirectory>/library/`
+- Metadata (title, artist, duration) is extracted and stored
+
 ### Testing Cross-Platform
 
 1. **Start Venue Host** on laptop connected to Wi-Fi:
@@ -147,21 +180,36 @@ If mDNS discovery doesn't work (AP isolation, older devices):
    cd venue-host && npm run dev
    ```
 
-2. **Connect Devices** to the same Wi-Fi network
+2. **Create Room in Dashboard**:
+   - Open http://localhost:8787
+   - Enter a room name (e.g., "Party Mix 2024")
+   - Click "Create Room"
+   - Optionally upload host files via "Host Library"
 
-3. **On Android Device**:
+3. **Connect Devices** to the same Wi-Fi network
+
+4. **On Android Device**:
    - Open app → "Trova Stanze"
    - Look for "Venue Rooms (Wi-Fi)" section
    - Tap the venue room to join
-   - Share files from library
+   - You should immediately see:
+     - All connected peers
+     - Host files (if any uploaded)
+     - Files shared by other peers
+   - Share files from library (tap "+ Add" → Library → select files)
 
-4. **On iOS Device**:
+5. **On iOS Device**:
    - Open app → "Trova Stanze"
    - Same venue room should appear
    - Tap to join
-   - Download files from Android user
+   - Should see all files and peers immediately
+   - Download files (they're saved to Library automatically)
 
-5. **Verify**: No internet required! Disconnect WAN, keep LAN.
+6. **Verify**:
+   - No internet required! Disconnect WAN, keep LAN.
+   - Files shared before a peer joins are visible when they join
+   - Files persist when leaving/returning (host files)
+   - Downloaded files appear in Library with full titles
 
 ### mDNS Service Discovery
 
@@ -305,6 +353,30 @@ File chunks are sent as binary WebSocket frames:
 3. **Star topology**: Host coordinates all communication
 4. **No transfer resume**: Interrupted transfers restart from zero
 5. **AP Isolation**: Some networks block device-to-device; relay should work
+6. **Session-based files**: Peer files are removed when they disconnect (host files persist)
+
+---
+
+## 🔧 Recent Improvements (v1.1)
+
+### File Synchronization Fixes
+- **Immediate sync on join**: Files are now synchronized immediately when callbacks are set, even if `INDEX_FULL` arrived before the component mounted
+- **Host files always visible**: Host files uploaded via dashboard are always included in the index
+- **Peer files on join**: When a peer joins, they receive all existing files (host + other peers)
+
+### Download Improvements
+- **Full title preservation**: File titles are no longer truncated (uses `file.title` instead of extracting from `fileName`)
+- **Automatic Library save**: Downloaded files are automatically added to Library with correct metadata
+- **Chunked base64 conversion**: Large files are converted to base64 in chunks to avoid stack overflow
+
+### Dashboard Enhancements
+- **Close Room button**: Allows host to close the room, stop mDNS, and disconnect all peers
+- **Host Library**: Upload audio files directly from dashboard to share as host
+- **Persistent state**: Room name and host files are saved to disk and restored on restart
+
+### Transport Improvements
+- **Callback synchronization**: `setOnFilesUpdated()` and `setOnPeerJoined()` now immediately call callbacks with existing state
+- **State cleanup**: Proper cleanup of `localFileUris` on disconnect
 
 ---
 
@@ -315,6 +387,22 @@ File chunks are sent as binary WebSocket frames:
 cd venue-host && npm run dev
 # Watch console output for connections, messages, errors
 ```
+
+### Common Issues & Solutions
+
+**Files not visible when joining:**
+- Ensure callbacks are set in Room component (`setOnFilesUpdated`)
+- Check venue host logs for `INDEX_FULL` messages
+- Try refreshing the app (r r in Metro)
+
+**File titles truncated:**
+- Fixed in v1.1 - ensure you're using the latest code
+- Check that `file.title` is being used instead of `fileName`
+
+**Files disappear when leaving/returning:**
+- This is expected: peer files are session-based
+- Host files persist across sessions
+- Re-join to see current files
 
 ### Android Logs
 ```bash
