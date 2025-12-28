@@ -15,6 +15,8 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
+  Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -26,6 +28,7 @@ import { useRoomStore } from '../src/stores/roomStore';
 import roomService from '../src/services/RoomService';
 import { useVenueDiscovery } from '../src/hooks/useVenueDiscovery';
 import { venueLanTransport } from '../src/venue/transport';
+import { bleService } from '../src/services/BleService';
 import { DiscoveredRoom, TransportMode } from '../src/types';
 import { DiscoveredVenueHost } from '../src/venue/types';
 import { Colors, Spacing, Typography, BorderRadius } from '../src/constants/theme';
@@ -54,6 +57,17 @@ export default function JoinScreen() {
   const [showManualConnect, setShowManualConnect] = useState(false);
   const [manualIp, setManualIp] = useState('');
   const [manualPort, setManualPort] = useState('8787');
+  
+  // Hotspot credentials modal
+  const [showHotspotModal, setShowHotspotModal] = useState(false);
+  const [hotspotInfo, setHotspotInfo] = useState<{
+    ssid: string;
+    password: string;
+    roomName: string;
+    hostAddress: string;
+    wsPort: number;
+  } | null>(null);
+  const [isLoadingCredentials, setIsLoadingCredentials] = useState(false);
 
   // Start scanning on mount
   useEffect(() => {
@@ -82,6 +96,131 @@ export default function JoinScreen() {
 
   const handleRefresh = () => {
     startScan();
+  };
+
+  // Handle BLE room - try to get hotspot credentials via GATT
+  const handleGetHotspotCredentials = async (room: DiscoveredRoom, deviceId: string) => {
+    setIsLoadingCredentials(true);
+    setSelectedId(room.roomId);
+    
+    try {
+      console.log('[Join] Reading hotspot credentials via GATT for device:', deviceId);
+      const roomInfo = await bleService.readRoomInfoViaGATT(deviceId);
+      
+      if (roomInfo && roomInfo.hotspotSSID) {
+        console.log('[Join] Got hotspot credentials:', roomInfo.hotspotSSID);
+        setHotspotInfo({
+          ssid: roomInfo.hotspotSSID,
+          password: roomInfo.hotspotPassword || '',
+          roomName: roomInfo.roomName,
+          hostAddress: roomInfo.hostAddress || '',
+          wsPort: roomInfo.wsPort || 8787,
+        });
+        setShowHotspotModal(true);
+      } else {
+        // No hotspot credentials - this is a regular LAN room, try to join directly
+        Alert.alert(
+          'Stanza LAN Trovata',
+          `Per unirti a "${room.roomName}", assicurati di essere sulla stessa rete Wi-Fi dell'host.`,
+          [
+            { text: 'Annulla', style: 'cancel' },
+            { text: 'Prova a Connettersi', onPress: () => handleJoinRoom(room) },
+          ]
+        );
+      }
+    } catch (error: any) {
+      console.error('[Join] Failed to get credentials:', error);
+      Alert.alert('Errore', 'Impossibile ottenere le credenziali hotspot. Riprova.');
+    } finally {
+      setIsLoadingCredentials(false);
+      setSelectedId(null);
+    }
+  };
+  
+  // Show password in alert for easy copying
+  const handleCopyPassword = () => {
+    if (hotspotInfo?.password) {
+      Alert.alert(
+        'Password Hotspot',
+        hotspotInfo.password,
+        [{ text: 'OK' }]
+      );
+    }
+  };
+  
+  // Open Wi-Fi settings
+  const openWifiSettings = async () => {
+    try {
+      if (Platform.OS === 'ios') {
+        // iOS: Open Wi-Fi settings directly
+        await Linking.openURL('App-Prefs:WIFI');
+      } else {
+        // Android: Open Wi-Fi settings
+        await Linking.sendIntent('android.settings.WIFI_SETTINGS');
+      }
+    } catch (error) {
+      // Fallback: open general settings
+      try {
+        if (Platform.OS === 'ios') {
+          await Linking.openURL('app-settings:');
+        } else {
+          await Linking.openSettings();
+        }
+      } catch {
+        Alert.alert('Errore', 'Impossibile aprire le impostazioni Wi-Fi. Aprile manualmente.');
+      }
+    }
+  };
+  
+  // After user connects to hotspot, try to join the room
+  const handleConnectAfterHotspot = async () => {
+    if (!hotspotInfo) return;
+    
+    setShowHotspotModal(false);
+    setIsJoining(true);
+    
+    try {
+      // Build the venue URL from hotspot info
+      // The host IP on hotspot is typically the gateway (e.g., 192.168.43.1)
+      // We try common hotspot gateway IPs
+      const commonHotspotIPs = [
+        '192.168.43.1',  // Android default
+        '172.20.10.1',   // iOS default  
+        hotspotInfo.hostAddress, // Try the advertised address too
+      ].filter(Boolean);
+      
+      let connected = false;
+      
+      for (const ip of commonHotspotIPs) {
+        if (!ip) continue;
+        console.log('[Join] Trying to connect to hotspot host at:', ip);
+        
+        try {
+          const url = `ws://${ip}:${hotspotInfo.wsPort}`;
+          await venueLanTransport.connectToUrl(url);
+          connected = true;
+          console.log('[Join] Connected to hotspot host at:', ip);
+          break;
+        } catch (e) {
+          console.log('[Join] Failed to connect to', ip, '- trying next');
+        }
+      }
+      
+      if (connected) {
+        router.replace('/room');
+      } else {
+        Alert.alert(
+          'Connessione Fallita',
+          'Non riesco a trovare l\'host. Assicurati di essere connesso all\'hotspot e riprova.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error: any) {
+      Alert.alert('Errore', error.message || 'Errore durante la connessione');
+    } finally {
+      setIsJoining(false);
+      setHotspotInfo(null);
+    }
   };
 
   const handleJoinRoom = async (room: DiscoveredRoom) => {
@@ -331,13 +470,30 @@ export default function JoinScreen() {
               );
             } else {
               const room = item as DiscoveredRoom;
+              // Check if this is a BLE room - try to get hotspot credentials first
+              const handleRoomPress = () => {
+                if (room.bleDeviceId) {
+                  // BLE room - try to get hotspot credentials via GATT
+                  handleGetHotspotCredentials(room, room.bleDeviceId);
+                } else {
+                  // Regular room - join directly
+                  handleJoinRoom(room);
+                }
+              };
+              
               return (
                 <View style={styles.cardWrapper}>
-                  <RoomCard room={room} onPress={() => handleJoinRoom(room)} />
-                  {selectedId === room.roomId && isJoining && (
+                  <RoomCard 
+                    room={room} 
+                    onPress={handleRoomPress}
+                    isBleRoom={!!room.bleDeviceId}
+                  />
+                  {selectedId === room.roomId && (isJoining || isLoadingCredentials) && (
                     <View style={styles.joiningOverlay}>
                       <ActivityIndicator size="large" color={Colors.primary} />
-                      <Text style={styles.joiningText}>Connessione in corso...</Text>
+                      <Text style={styles.joiningText}>
+                        {isLoadingCredentials ? 'Lettura credenziali...' : 'Connessione in corso...'}
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -382,6 +538,79 @@ export default function JoinScreen() {
       >
         <Text style={styles.manualConnectText}>📶 Connetti manualmente a Venue Host</Text>
       </TouchableOpacity>
+
+      {/* Hotspot Credentials Modal */}
+      <Modal
+        visible={showHotspotModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowHotspotModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>🔥 Connessione Hotspot</Text>
+            <Text style={styles.modalSubtitle}>
+              Per unirti a "{hotspotInfo?.roomName}", connettiti all'hotspot dell'host:
+            </Text>
+            
+            <View style={styles.hotspotCredentials}>
+              <View style={styles.hotspotRow}>
+                <Text style={styles.hotspotLabel}>Nome Rete:</Text>
+                <Text style={styles.hotspotValue}>{hotspotInfo?.ssid}</Text>
+              </View>
+              
+              <View style={styles.hotspotRow}>
+                <Text style={styles.hotspotLabel}>Password:</Text>
+                <View style={styles.passwordRow}>
+                  <Text style={styles.hotspotValue}>{hotspotInfo?.password || '(nessuna)'}</Text>
+                  {hotspotInfo?.password && (
+                    <TouchableOpacity onPress={handleCopyPassword} style={styles.copyButton}>
+                      <Text style={styles.copyButtonText}>📋</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            </View>
+            
+            <Text style={styles.hotspotInstructions}>
+              1. Premi "Apri Wi-Fi" per andare alle impostazioni{'\n'}
+              2. Connettiti a "{hotspotInfo?.ssid}"{'\n'}
+              3. Torna qui e premi "Sono Connesso"
+            </Text>
+            
+            {/* Open Wi-Fi Settings Button */}
+            <TouchableOpacity
+              style={styles.openWifiButton}
+              onPress={openWifiSettings}
+            >
+              <Text style={styles.openWifiButtonText}>📶 Apri Impostazioni Wi-Fi</Text>
+            </TouchableOpacity>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => {
+                  setShowHotspotModal(false);
+                  setHotspotInfo(null);
+                }}
+              >
+                <Text style={styles.modalCancelText}>Annulla</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConnectButton}
+                onPress={handleConnectAfterHotspot}
+                disabled={isJoining}
+              >
+                {isJoining ? (
+                  <ActivityIndicator size="small" color={Colors.textPrimary} />
+                ) : (
+                  <Text style={styles.modalConnectText}>✅ Sono Connesso</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Manual Connect Modal */}
       <Modal
@@ -627,6 +856,71 @@ const styles = StyleSheet.create({
   modalConnectText: {
     fontSize: Typography.sizes.md,
     color: '#FFFFFF',
+    fontWeight: '600',
+  },
+
+  // Hotspot modal styles
+  hotspotCredentials: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+
+  hotspotRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.xs,
+  },
+
+  hotspotLabel: {
+    fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary,
+  },
+
+  hotspotValue: {
+    fontSize: Typography.sizes.md,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+  },
+
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+
+  copyButton: {
+    padding: Spacing.xs,
+  },
+
+  copyButtonText: {
+    fontSize: 18,
+  },
+
+  hotspotInstructions: {
+    fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary,
+    lineHeight: 22,
+    marginTop: Spacing.sm,
+  },
+
+  openWifiButton: {
+    backgroundColor: Colors.primary,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+
+  openWifiButtonText: {
+    color: '#FFFFFF',
+    fontSize: Typography.sizes.md,
     fontWeight: '600',
   },
 });

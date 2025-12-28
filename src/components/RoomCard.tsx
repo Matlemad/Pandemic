@@ -11,18 +11,26 @@ import { formatRelativeTime } from '../utils/format';
 interface RoomCardProps {
   room: DiscoveredRoom;
   onPress: () => void;
+  isBleRoom?: boolean;
 }
 
-export function RoomCard({ room, onPress }: RoomCardProps) {
+export function RoomCard({ room, onPress, isBleRoom }: RoomCardProps) {
   const signalStrength = getSignalStrength(room.rssi);
 
   return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.header}>
         <View style={styles.roomInfo}>
-          <Text style={styles.roomName} numberOfLines={1}>
-            {room.roomName}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.roomName} numberOfLines={1}>
+              {room.roomName}
+            </Text>
+            {isBleRoom && (
+              <View style={styles.bleBadge}>
+                <Text style={styles.bleBadgeText}>📡</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.hostName}>
             👤 {room.hostName}
           </Text>
@@ -34,7 +42,12 @@ export function RoomCard({ room, onPress }: RoomCardProps) {
 
       <View style={styles.footer}>
         <View style={styles.badges}>
-          {room.wifiAvailable && (
+          {isBleRoom && (
+            <View style={[styles.badge, styles.hotspotBadge]}>
+              <Text style={styles.badgeText}>🔥 Hotspot</Text>
+            </View>
+          )}
+          {room.wifiAvailable && !isBleRoom && (
             <View style={[styles.badge, styles.wifiBadge]}>
               <Text style={styles.badgeText}>📶 Wi-Fi</Text>
             </View>
@@ -109,11 +122,25 @@ const styles = StyleSheet.create({
     marginRight: Spacing.md,
   },
 
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+
   roomName: {
     fontSize: Typography.sizes.lg,
     fontWeight: '700',
     color: Colors.textPrimary,
     marginBottom: Spacing.xs,
+  },
+
+  bleBadge: {
+    marginBottom: Spacing.xs,
+  },
+
+  bleBadgeText: {
+    fontSize: 16,
   },
 
   hostName: {
@@ -156,6 +183,10 @@ const styles = StyleSheet.create({
 
   wifiBadge: {
     backgroundColor: Colors.secondaryGlow,
+  },
+
+  hotspotBadge: {
+    backgroundColor: '#FF9500', // Orange for hotspot
   },
 
   badgeText: {

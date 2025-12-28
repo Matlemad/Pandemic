@@ -136,6 +136,82 @@ export class VenueLanTransport {
   // CONNECTION
   // ============================================================================
 
+  /**
+   * Connect directly to a WebSocket URL (used for hotspot mode where we know the IP)
+   */
+  async connectToUrl(wsUrl: string): Promise<void> {
+    if (this.ws) {
+      await this.disconnect();
+    }
+
+    this.connectionState = VenueConnectionState.CONNECTING;
+    this.onConnectionStateChange?.(this.connectionState);
+    
+    // Parse host and port from URL
+    const match = wsUrl.match(/ws:\/\/([^:]+):(\d+)/);
+    if (match) {
+      this.currentHost = {
+        host: match[1],
+        port: parseInt(match[2], 10),
+        name: 'Hotspot Host',
+        roomName: 'Hotspot Room',
+        roomId: '',
+        locked: false,
+        relay: true,
+        version: 1,
+        lastSeen: Date.now(),
+      };
+    }
+
+    return new Promise((resolve, reject) => {
+      console.log('[VenueLan] Connecting to URL:', wsUrl);
+
+      this.ws = new WebSocket(wsUrl);
+      this.ws.binaryType = 'arraybuffer';
+
+      const timeout = setTimeout(() => {
+        reject(new Error('Connection timeout'));
+        this.disconnect();
+      }, 10000);
+
+      this.ws.onopen = () => {
+        clearTimeout(timeout);
+        console.log('[VenueLan] WebSocket connected via URL');
+        this.connectionState = VenueConnectionState.CONNECTED;
+        this.onConnectionStateChange?.(this.connectionState);
+        this.reconnectAttempts = 0;
+        
+        this.send({
+          type: VenueMessageType.HELLO,
+          peerId: this.localPeerId,
+          deviceName: this.displayName,
+          platform: Platform.OS,
+          appVersion: '1.0.0',
+          ts: Date.now(),
+        });
+        
+        this.startHeartbeat();
+        resolve();
+      };
+
+      this.ws.onclose = (event) => {
+        clearTimeout(timeout);
+        console.log('[VenueLan] WebSocket closed:', event.code);
+        this.handleDisconnect();
+      };
+
+      this.ws.onerror = (error) => {
+        clearTimeout(timeout);
+        console.error('[VenueLan] WebSocket error:', error);
+        reject(new Error('WebSocket connection failed'));
+      };
+
+      this.ws.onmessage = (event) => {
+        this.handleMessage(event);
+      };
+    });
+  }
+
   async connectToVenueHost(host: DiscoveredVenueHost): Promise<void> {
     // Don't reconnect if already connected to the same host
     if (this.ws && this.currentHost && 

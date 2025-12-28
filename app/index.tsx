@@ -97,6 +97,19 @@ export default function HomeScreen() {
               Cerca stanze attive nelle vicinanze
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionCard, styles.lanCard]}
+            onPress={() => router.push('/lan-host')}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.actionGlow, styles.lanGlow]} />
+            <Text style={styles.actionIcon}>📡</Text>
+            <Text style={styles.actionTitle}>Crea LAN Room</Text>
+            <Text style={styles.actionDescription}>
+              Ospita una stanza via Wi-Fi/hotspot (cross-platform)
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Quick Links */}
@@ -251,6 +264,12 @@ const styles = StyleSheet.create({
     borderColor: Colors.secondary,
   },
 
+  lanCard: {
+    backgroundColor: Colors.surface,
+    borderWidth: 2,
+    borderColor: Colors.accent,
+  },
+
   actionGlow: {
     position: 'absolute',
     top: -50,
@@ -263,6 +282,10 @@ const styles = StyleSheet.create({
 
   joinGlow: {
     backgroundColor: Colors.secondaryGlow,
+  },
+
+  lanGlow: {
+    backgroundColor: Colors.accent + '40',
   },
 
   actionIcon: {

@@ -16,6 +16,9 @@ interface BleAdvertisingNativeModule {
     hostName: string;
     hostAddress: string | null;
     wifiAvailable: boolean;
+    hotspotSSID?: string;
+    hotspotPassword?: string;
+    wsPort?: number;
   }): Promise<{ success: boolean }>;
   stopAdvertising(): Promise<boolean>;
   isAdvertising(): Promise<boolean>;
@@ -71,6 +74,9 @@ class BleAdvertisingNative {
         hostName: advertisement.hostName,
         hostAddress: advertisement.hostAddress,
         wifiAvailable: advertisement.wifiAvailable,
+        hotspotSSID: advertisement.hotspotSSID,
+        hotspotPassword: advertisement.hotspotPassword,
+        wsPort: advertisement.wsPort,
       });
 
       return result.success;

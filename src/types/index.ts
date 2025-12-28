@@ -61,6 +61,7 @@ export interface RoomInfo {
 export interface DiscoveredRoom extends RoomInfo {
   rssi: number; // BLE signal strength
   lastSeen: number;
+  bleDeviceId?: string; // BLE device ID for GATT connection (to read hotspot credentials)
 }
 
 export interface RoomState {
@@ -177,6 +178,10 @@ export interface BleAdvertisement {
   wifiAvailable: boolean;
   hostAddress: string | null;
   version: number; // Protocol version
+  // Hotspot bootstrap info (for LAN room discovery via BLE)
+  hotspotSSID?: string;
+  hotspotPassword?: string;
+  wsPort?: number; // WebSocket port for LAN connection
 }
 
 export interface BleJoinRequest {

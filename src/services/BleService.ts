@@ -97,6 +97,11 @@ class BleService {
   
   // Flag to check if BLE is available
   private isBleAvailable = false;
+  
+  // Flag to avoid repeated initialization attempts
+  private initializationFailed = false;
+  private lastInitAttempt = 0;
+  private static readonly INIT_RETRY_DELAY = 30000; // 30 seconds between retries
 
   constructor() {
     if (BleManager) {
@@ -104,11 +109,11 @@ class BleService {
         this.manager = new BleManager();
         this.isBleAvailable = true;
       } catch (error) {
-        console.warn('Failed to initialize BleManager:', error);
+        console.warn('[BLE] Manager init failed');
         this.isBleAvailable = false;
       }
     } else {
-      console.warn('BLE not available - running in simulation mode');
+      // Only log once, not on every call
       this.isBleAvailable = false;
     }
   }
@@ -119,28 +124,31 @@ class BleService {
   async initialize(): Promise<boolean> {
     if (this.isInitialized) return true;
 
-    // If BLE is not available (Expo Go), return false but don't throw
+    // If BLE is not available (Expo Go), return false silently
     if (!this.isBleAvailable || !this.manager) {
-      console.warn('BLE not available - running in simulation mode');
-      this.isInitialized = false;
       return false;
     }
+    
+    // Avoid repeated initialization attempts within the retry delay
+    const now = Date.now();
+    if (this.initializationFailed && (now - this.lastInitAttempt) < BleService.INIT_RETRY_DELAY) {
+      // Silent return - don't spam logs
+      return false;
+    }
+    this.lastInitAttempt = now;
 
     try {
       // Check BLE state
       const state = await this.manager.state();
-      console.log('Current BLE state:', state);
       
       if (state !== State.PoweredOn) {
-        console.log('BLE not powered on, waiting...');
-        // Wait for BLE to be ready
+        // Wait for BLE to be ready with shorter timeout
         await new Promise<void>((resolve, reject) => {
           const timeout = setTimeout(() => {
-            reject(new Error('Bluetooth non disponibile - assicurati che Bluetooth sia acceso'));
-          }, 10000);
+            reject(new Error('BLE_NOT_POWERED'));
+          }, 5000); // Reduced from 10s to 5s
 
           this.stateSubscription = this.manager.onStateChange((newState: any) => {
-            console.log('BLE state changed:', newState);
             if (newState === State.PoweredOn) {
               clearTimeout(timeout);
               resolve();
@@ -162,16 +170,23 @@ class BleService {
       }
 
       this.isInitialized = true;
-      console.log('BLE service initialized successfully');
+      this.initializationFailed = false;
+      console.log('[BLE] Initialized successfully');
       return true;
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('BLE initialization failed:', errorMessage);
+      this.initializationFailed = true;
       
-      // Call error callback if available
-      if (this.callbacks?.onError && error instanceof Error) {
-        this.callbacks.onError(error);
+      // Only log detailed error once, not on every retry
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage !== 'BLE_NOT_POWERED') {
+        console.warn('[BLE] Init failed:', errorMessage);
+        
+        // Call error callback only for non-power errors
+        if (this.callbacks?.onError && error instanceof Error) {
+          this.callbacks.onError(error);
+        }
       }
+      // Silent failure for BLE not powered - user can still use Wi-Fi/LAN mode
       
       return false;
     }
@@ -265,14 +280,14 @@ class BleService {
    */
   async startScanning(): Promise<void> {
     if (!this.isBleAvailable || !this.manager) {
-      console.warn('BLE scanning not available - simulation mode');
+      // Silent - user can use Wi-Fi/LAN mode
       return;
     }
 
     if (!this.isInitialized) {
       const initialized = await this.initialize();
       if (!initialized) {
-        console.warn('BLE initialization failed - cannot start scanning');
+        // Silent - already logged in initialize()
         return;
       }
     }
@@ -293,7 +308,10 @@ class BleService {
       { allowDuplicates: true },
       (error: any, device: any) => {
         if (error) {
-          console.error('Scan error:', error);
+          // Only log non-BLE-off errors
+          if (!error.message?.includes('powered')) {
+            console.warn('[BLE] Scan error:', error.message || error);
+          }
           if (this.callbacks?.onError && error instanceof Error) {
             this.callbacks.onError(error);
           } else if (this.callbacks?.onError) {
@@ -362,6 +380,7 @@ class BleService {
           rssi: device.rssi ?? -100,
           lastSeen: now,
           peerCount: 0, // Will be updated when joining
+          bleDeviceId: device.id, // For GATT connection to read hotspot credentials
         };
 
         console.log('✅ Parsed room from advertisement:', discoveredRoom);
@@ -518,17 +537,16 @@ class BleService {
    */
   async startAdvertising(advertisement: BleAdvertisement): Promise<void> {
     if (!this.isBleAvailable || !this.manager) {
-      console.warn('BLE advertising not available - simulation mode');
+      // Silent fallback - BLE optional
       this.currentAdvertisement = advertisement;
       this.isAdvertising = true;
-      console.log('Started advertising room (simulated):', advertisement.roomName);
       return;
     }
 
     if (!this.isInitialized) {
       const initialized = await this.initialize();
       if (!initialized) {
-        console.warn('BLE initialization failed - cannot start advertising');
+        // Silent - already logged in initialize()
         return;
       }
     }
@@ -683,6 +701,100 @@ class BleService {
     try {
       return await this.manager.state();
     } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Connect to a discovered device and read full room info via GATT
+   * This is used to get hotspot credentials when discovering rooms via BLE
+   * 
+   * @param deviceId - The BLE device ID to connect to
+   * @returns Room info with hotspot credentials, or null if failed
+   */
+  async readRoomInfoViaGATT(deviceId: string): Promise<{
+    roomId: string;
+    roomName: string;
+    hostId: string;
+    hostName: string;
+    hostAddress: string;
+    wifiAvailable: boolean;
+    wsPort: number;
+    hotspotSSID?: string;
+    hotspotPassword?: string;
+  } | null> {
+    if (!this.isBleAvailable || !this.manager) {
+      console.warn('[BLE] Cannot read GATT - BLE not available');
+      return null;
+    }
+
+    let device: any = null;
+    
+    try {
+      console.log('[BLE] Connecting to device for GATT read:', deviceId);
+      
+      // Connect to device
+      device = await this.manager.connectToDevice(deviceId, {
+        timeout: 10000, // 10 second timeout
+      });
+      
+      if (!device) {
+        console.warn('[BLE] Failed to connect to device');
+        return null;
+      }
+      
+      console.log('[BLE] Connected, discovering services...');
+      
+      // Discover services and characteristics
+      await device.discoverAllServicesAndCharacteristics();
+      
+      // Read the room info characteristic
+      const characteristic = await device.readCharacteristicForService(
+        PANDEMIC_SERVICE_UUID,
+        ROOM_CHAR_UUID
+      );
+      
+      if (!characteristic || !characteristic.value) {
+        console.warn('[BLE] Room info characteristic not found or empty');
+        await device.cancelConnection();
+        return null;
+      }
+      
+      // Decode base64 value
+      const jsonString = atob(characteristic.value);
+      console.log('[BLE] Read room info:', jsonString);
+      
+      // Parse JSON
+      const roomInfo = JSON.parse(jsonString);
+      
+      // Disconnect
+      await device.cancelConnection();
+      console.log('[BLE] Disconnected after reading room info');
+      
+      return {
+        roomId: roomInfo.roomId || '',
+        roomName: roomInfo.roomName || '',
+        hostId: roomInfo.hostId || '',
+        hostName: roomInfo.hostName || '',
+        hostAddress: roomInfo.hostAddress || '',
+        wifiAvailable: roomInfo.wifiAvailable || false,
+        wsPort: roomInfo.wsPort || 8787,
+        hotspotSSID: roomInfo.hotspotSSID,
+        hotspotPassword: roomInfo.hotspotPassword,
+      };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('[BLE] Failed to read room info via GATT:', errorMessage);
+      
+      // Try to disconnect if we connected
+      if (device) {
+        try {
+          await device.cancelConnection();
+        } catch {
+          // Ignore disconnect errors
+        }
+      }
+      
       return null;
     }
   }

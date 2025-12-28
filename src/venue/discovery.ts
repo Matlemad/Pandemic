@@ -67,8 +67,25 @@ class VenueDiscoveryManager {
       console.error('[VenueDiscovery] Error:', data);
       this.onError?.(data.message || 'Discovery error');
     });
+    
+    const sub4 = this.nativeEmitter.addListener('venue_advertise_started', (data: any) => {
+      console.log('[VenueDiscovery] Advertisement started:', data);
+      this.onAdvertiseStarted?.(data.name, data.port);
+    });
+    
+    const sub5 = this.nativeEmitter.addListener('venue_advertise_stopped', () => {
+      console.log('[VenueDiscovery] Advertisement stopped');
+      this.isAdvertising = false;
+      this.onAdvertiseStopped?.();
+    });
+    
+    const sub6 = this.nativeEmitter.addListener('venue_advertise_error', (data: any) => {
+      console.error('[VenueDiscovery] Advertisement error:', data);
+      this.isAdvertising = false;
+      this.onAdvertiseError?.(data.message || 'Advertisement error');
+    });
 
-    this.subscriptions = [sub1, sub2, sub3];
+    this.subscriptions = [sub1, sub2, sub3, sub4, sub5, sub6];
   }
 
   private parseServiceData(data: any): DiscoveredVenueHost | null {
@@ -177,6 +194,9 @@ class VenueDiscoveryManager {
     this.onHostFound = null;
     this.onHostLost = null;
     this.onError = null;
+    this.onAdvertiseStarted = null;
+    this.onAdvertiseStopped = null;
+    this.onAdvertiseError = null;
   }
 
   /**
@@ -184,6 +204,7 @@ class VenueDiscoveryManager {
    */
   destroy(): void {
     this.stopDiscovery();
+    this.stopAdvertise();
     
     for (const sub of this.subscriptions) {
       sub.remove();
@@ -192,6 +213,98 @@ class VenueDiscoveryManager {
     
     this.discoveredHosts.clear();
     this.clearCallbacks();
+  }
+  
+  // ============================================================================
+  // ADVERTISEMENT (PUBLISH)
+  // ============================================================================
+  
+  private isAdvertising = false;
+  private onAdvertiseStarted: ((name: string, port: number) => void) | null = null;
+  private onAdvertiseStopped: (() => void) | null = null;
+  private onAdvertiseError: ((error: string) => void) | null = null;
+  
+  /**
+   * Start advertising (publishing) a service
+   */
+  async startAdvertise(
+    serviceType: string,
+    name: string,
+    port: number,
+    txt: Record<string, string>
+  ): Promise<boolean> {
+    if (!isVenueDiscoveryAvailable) {
+      console.warn('[VenueDiscovery] Not available on this platform');
+      return false;
+    }
+    
+    if (this.isAdvertising) {
+      return true;
+    }
+    
+    try {
+      await VenueDiscoveryModule.startAdvertise(serviceType, name, port, txt);
+      this.isAdvertising = true;
+      console.log('[VenueDiscovery] Started advertising:', name, 'on port', port);
+      return true;
+    } catch (error) {
+      console.error('[VenueDiscovery] Failed to start advertising:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Stop advertising
+   */
+  async stopAdvertise(): Promise<void> {
+    if (!isVenueDiscoveryAvailable || !this.isAdvertising) {
+      return;
+    }
+    
+    try {
+      await VenueDiscoveryModule.stopAdvertise();
+      this.isAdvertising = false;
+      console.log('[VenueDiscovery] Stopped advertising');
+    } catch (error) {
+      console.error('[VenueDiscovery] Failed to stop advertising:', error);
+    }
+  }
+  
+  /**
+   * Check if currently advertising
+   */
+  async isAdvertiseActive(): Promise<boolean> {
+    if (!isVenueDiscoveryAvailable) {
+      return false;
+    }
+    
+    try {
+      return await VenueDiscoveryModule.isAdvertising();
+    } catch (error) {
+      console.error('[VenueDiscovery] Failed to check advertising status:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Set callback for when advertisement starts
+   */
+  setOnAdvertiseStarted(callback: (name: string, port: number) => void): void {
+    this.onAdvertiseStarted = callback;
+  }
+  
+  /**
+   * Set callback for when advertisement stops
+   */
+  setOnAdvertiseStopped(callback: () => void): void {
+    this.onAdvertiseStopped = callback;
+  }
+  
+  /**
+   * Set callback for advertisement errors
+   */
+  setOnAdvertiseError(callback: (error: string) => void): void {
+    this.onAdvertiseError = callback;
   }
 }
 

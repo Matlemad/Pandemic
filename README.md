@@ -49,20 +49,20 @@ Questo sistema si comporta come:
 │                         PANDEMIC - ARCHITETTURA                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│   ┌─────────────┐         BLE Discovery          ┌─────────────┐           │
-│   │   DEVICE A  │◄──────────────────────────────►│   DEVICE B  │           │
-│   │   (HOST)    │                                │   (GUEST)   │           │
-│   └──────┬──────┘                                └──────┬──────┘           │
-│          │                                              │                   │
-│          │  ┌──────────────────────────────────────┐   │                   │
-│          │  │         LOCAL WI-FI NETWORK          │   │                   │
-│          │  │    (Venue Router / Mobile Hotspot)   │   │                   │
-│          │  └──────────────────────────────────────┘   │                   │
-│          │                    │                        │                   │
-│          └────────────────────┼────────────────────────┘                   │
+│   ┌─────────────┐    BLE Discovery + GATT     ┌─────────────┐              │
+│   │   DEVICE A  │◄───────────────────────────►│   DEVICE B  │              │
+│   │   (HOST)    │  (Room info + Hotspot creds)│   (GUEST)   │              │
+│   └──────┬──────┘                             └──────┬──────┘              │
+│          │                                           │                      │
+│          │  ┌──────────────────────────────────────┐ │                      │
+│          │  │         LOCAL WI-FI NETWORK          │ │                      │
+│          │  │  (Venue Router / Phone Hotspot 📱)   │ │                      │
+│          │  └──────────────────────────────────────┘ │                      │
+│          │                    │                      │                      │
+│          └────────────────────┼──────────────────────┘                      │
 │                               │                                             │
 │                    ┌──────────▼──────────┐                                 │
-│                    │   HTTP/WebSocket    │                                 │
+│                    │   WebSocket/HTTP    │                                 │
 │                    │   Data Transfer     │                                 │
 │                    └─────────────────────┘                                 │
 │                                                                             │
@@ -72,36 +72,36 @@ Questo sistema si comporta come:
 │                                                                             │
 │   ┌─────────────────────────────────────────────────────────────────────┐  │
 │   │                        UI LAYER (React Native)                       │  │
-│   │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐ │  │
-│   │  │   Home   │  │  Host    │  │  Guest   │  │  Transfer Progress   │ │  │
-│   │  │  Screen  │  │  Mode    │  │  Mode    │  │       Screen         │ │  │
-│   │  └──────────┘  └──────────┘  └──────────┘  └──────────────────────┘ │  │
+│   │  ┌────────┐ ┌────────┐ ┌────────┐ ┌──────────┐ ┌──────────────────┐ │  │
+│   │  │  Home  │ │ Host   │ │ LAN    │ │  Guest   │ │    Library       │ │  │
+│   │  │ Screen │ │ Mode   │ │ Host📱 │ │  Mode    │ │    + Player      │ │  │
+│   │  └────────┘ └────────┘ └────────┘ └──────────┘ └──────────────────┘ │  │
 │   └─────────────────────────────────────────────────────────────────────┘  │
 │                                    │                                        │
 │   ┌─────────────────────────────────────────────────────────────────────┐  │
 │   │                      SERVICE LAYER                                   │  │
-│   │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────────┐  │  │
-│   │  │   Room      │  │   Peer      │  │  Transfer   │  │   Audio    │  │  │
-│   │  │   Manager   │  │   Discovery │  │   Manager   │  │   Library  │  │  │
-│   │  └─────────────┘  └─────────────┘  └─────────────┘  └────────────┘  │  │
+│   │  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────────────┐ │  │
+│   │  │   Room    │  │   Peer    │  │ Transfer  │  │   Audio Library   │ │  │
+│   │  │   Manager │  │  Discovery│  │   Manager │  │   + Playback      │ │  │
+│   │  └───────────┘  └───────────┘  └───────────┘  └───────────────────┘ │  │
 │   └─────────────────────────────────────────────────────────────────────┘  │
 │                                    │                                        │
 │   ┌─────────────────────────────────────────────────────────────────────┐  │
 │   │                     TRANSPORT LAYER                                  │  │
-│   │  ┌──────────────────────┐  ┌────────────────────────────────────┐   │  │
-│   │  │   BLE Service        │  │   LAN Service                      │   │  │
-│   │  │   - Advertising      │  │   - HTTP Server                    │   │  │
-│   │  │   - Scanning         │  │   - WebSocket Server               │   │  │
-│   │  │   - GATT             │  │   - File Streaming                 │   │  │
-│   │  └──────────────────────┘  └────────────────────────────────────┘   │  │
+│   │  ┌───────────────────┐  ┌──────────────────┐ ┌────────────────────┐ │  │
+│   │  │   BLE Service     │  │   LAN Service    │ │ Phone Host Server │ │  │
+│   │  │   - Advertising   │  │   - mDNS         │ │ - WebSocket (8787)│ │  │
+│   │  │   - Scanning      │  │   - Venue client │ │ - File Relay      │ │  │
+│   │  │   - GATT Server   │  │   - File relay   │ │ - GATT credentials│ │  │
+│   │  └───────────────────┘  └──────────────────┘ └────────────────────┘ │  │
 │   └─────────────────────────────────────────────────────────────────────┘  │
 │                                    │                                        │
 │   ┌─────────────────────────────────────────────────────────────────────┐  │
 │   │                      STORAGE LAYER                                   │  │
 │   │  ┌──────────────────────┐  ┌────────────────────────────────────┐   │  │
-│   │  │   AsyncStorage/MMKV  │  │   FileSystem                       │   │  │
+│   │  │   AsyncStorage       │  │   FileSystem                       │   │  │
 │   │  │   - Metadata Index   │  │   - Audio Files                    │   │  │
-│   │  │   - Room State       │  │   - Cache                          │   │  │
+│   │  │   - Room State       │  │   - Library folder                 │   │  │
 │   │  └──────────────────────┘  └────────────────────────────────────┘   │  │
 │   └─────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │
@@ -331,6 +331,43 @@ Se mDNS non funziona (reti con AP isolation, Android 11):
 
 📖 Dettagli completi in [P2P_README.md](./P2P_README.md)
 
+### Cross-Platform (Android↔iOS) - Phone Host Mode 📱
+
+**Alternativa senza laptop!** Un telefono può fare da host usando la stessa rete Wi-Fi o il proprio **hotspot**.
+
+**Scenario 1: Stessa rete Wi-Fi**
+1. Host apre l'app → "Crea LAN Room (Wi-Fi/Hotspot)"
+2. Inserisce nome stanza → "Avvia Stanza"
+3. Guests sullo stesso Wi-Fi vedono automaticamente la stanza in "Trova Stanze"
+4. Tap sulla stanza → connessione diretta
+
+**Scenario 2: Hotspot dell'Host (nessun Wi-Fi disponibile)** 🔥
+1. Host attiva l'hotspot del telefono (nelle impostazioni di sistema)
+2. Host apre l'app → "Crea LAN Room"
+3. Abilita **"Modalità Hotspot"** e inserisce:
+   - Nome rete (SSID) dell'hotspot
+   - Password dell'hotspot
+4. "Avvia Stanza" → BLE + mDNS + WebSocket server partono
+
+**Per i Guests:**
+1. Apri l'app → "Trova Stanze"
+2. Vedi la stanza con badge 📡 e 🔥 Hotspot (trovata via BLE)
+3. Tap sulla stanza → appare modal con credenziali hotspot
+4. Premi **"Apri Impostazioni Wi-Fi"** → si aprono le impostazioni
+5. Connettiti all'hotspot dell'host
+6. Torna nell'app → premi **"Sono Connesso"**
+7. Ora sei nella stanza!
+
+**Come funziona sotto il cofano:**
+- L'host pubblica le credenziali dell'hotspot via **BLE GATT** (caratteristica leggibile)
+- I guests trovano l'host via BLE scanning
+- Toccando la stanza, il guest si connette via GATT e legge SSID + password
+- Dopo la connessione all'hotspot, il guest si collega al WebSocket server dell'host
+
+**Limitazioni:**
+- iOS/Android non permettono la connessione automatica all'hotspot (serve intervento manuale)
+- L'hotspot deve essere attivato manualmente dall'host
+
 ### Audio Library 🎵
 
 La **Libreria Audio** è il punto centrale per gestire i tuoi file audio:
@@ -361,6 +398,7 @@ La **Libreria Audio** è il punto centrale per gestire i tuoi file audio:
 
 - ⚠️ BLE funziona affidabilmente solo in foreground
 - ⚠️ Trasferimenti background inaffidabili
+- ❌ **Connessione automatica a hotspot impossibile** - Apple blocca la connessione programmatica a reti Wi-Fi
 - 💡 Mantieni l'app aperta durante i trasferimenti
 
 ### Android
@@ -368,12 +406,15 @@ La **Libreria Audio** è il punto centrale per gestire i tuoi file audio:
 - ✅ Più permissivo per BLE
 - ✅ Throughput generalmente superiore
 - ⚠️ Background comunque limitato
+- ⚠️ **Hotspot richiede conferma utente** - `WifiNetworkSuggestion` mostra sempre una notifica
+- ⚠️ Android 12+ richiede permessi BLE runtime (`BLUETOOTH_ADVERTISE`, `BLUETOOTH_CONNECT`)
 
 ### Generale
 
 - 📶 Wi-Fi LAN richiede stessa rete
 - 🔋 Trasferimenti grandi consumano batteria
 - 📱 Tieni lo schermo acceso durante i trasferimenti
+- 🔥 **Hotspot mode**: la connessione all'hotspot richiede sempre intervento manuale dell'utente
 
 ---
 
@@ -384,9 +425,10 @@ pandemic/
 ├── app/                    # Schermate (expo-router)
 │   ├── _layout.tsx        # Root layout
 │   ├── index.tsx          # Home screen
-│   ├── host.tsx           # Create room
-│   ├── join.tsx           # Find rooms
+│   ├── host.tsx           # Create room (P2P same-platform)
+│   ├── join.tsx           # Find rooms (P2P + Venue + LAN Host)
 │   ├── room.tsx           # Active room
+│   ├── lan-host.tsx       # 📱 Phone Host Mode (crea LAN room da telefono)
 │   ├── library.tsx        # Audio library (import, playback, reorder)
 │   └── settings.tsx       # Settings
 ├── src/
@@ -394,7 +436,10 @@ pandemic/
 │   ├── services/          # Business logic
 │   │   ├── AudioLibraryService.ts  # Library management
 │   │   ├── AudioPlaybackService.ts # Playback control
-│   │   └── P2PRoomServiceAdapter.ts # P2P/Venue adapter
+│   │   ├── BleService.ts           # BLE scanning + GATT read
+│   │   ├── P2PRoomServiceAdapter.ts # P2P/Venue adapter
+│   │   └── native/
+│   │       └── BleAdvertisingNative.ts # BLE advertising wrapper
 │   ├── stores/            # Zustand stores
 │   │   └── libraryStore.ts # Audio library state
 │   ├── p2p/               # Native P2P transport (Nearby/Multipeer)
@@ -404,9 +449,15 @@ pandemic/
 │   │   └── protocol/      # Room protocol
 │   ├── venue/             # Venue LAN cross-platform
 │   │   ├── types.ts       # Venue types
-│   │   ├── discovery.ts   # mDNS discovery
+│   │   ├── discovery.ts   # mDNS discovery + advertisement
 │   │   ├── transport.ts   # WebSocket transport
 │   │   └── relay.ts       # File relay
+│   ├── lanHost/           # 📱 Phone Host Mode
+│   │   ├── types.ts       # LAN host types
+│   │   ├── hostState.ts   # In-memory room state
+│   │   ├── PhoneHostServer.ts # Native WS server wrapper
+│   │   ├── wsHandler.ts   # WebSocket message handler
+│   │   └── index.ts       # Exports
 │   ├── types/             # TypeScript types
 │   ├── utils/             # Utilities
 │   └── constants/         # Theme & constants
@@ -422,7 +473,17 @@ pandemic/
 │   ├── package.json
 │   └── README.md
 ├── ios/                   # Native iOS modules
+│   └── Pandemic/
+│       ├── LanHost/       # WebSocket server (Network.framework)
+│       ├── VenueDiscovery/ # mDNS (NetService)
+│       ├── BleAdvertising/ # BLE GATT server (CoreBluetooth)
+│       └── P2P/           # MultipeerConnectivity
 ├── android/               # Native Android modules
+│   └── app/src/main/java/com/pandemic/app/
+│       ├── lanhost/       # WebSocket server (Java-WebSocket)
+│       ├── venue/         # mDNS (NsdManager)
+│       ├── BleAdvertisingModule.kt # BLE GATT server
+│       └── nearby/        # Nearby Connections
 ├── assets/                # Images, fonts
 ├── app.json              # Expo config
 ├── package.json
@@ -477,11 +538,21 @@ L'interfaccia è ispirata all'atmosfera di un warehouse party:
 - [x] Sincronizzazione file migliorata (file visibili anche se caricati prima dell'ingresso)
 - [x] Audio Library con playback e riordinamento
 - [x] Download automatico in Library con titoli completi
+
+### v1.2 - Phone Host Mode ✅
+- [x] **Phone Host Mode**: un telefono può fare da host (senza laptop)
+- [x] WebSocket server nativo in-app (Android: Java-WebSocket, iOS: Network.framework)
+- [x] mDNS advertisement da telefono
+- [x] **BLE GATT per hotspot credentials**: scambio SSID/password via Bluetooth
+- [x] UI per modalità hotspot (inserimento credenziali)
+- [x] Modal con credenziali + bottone "Apri Impostazioni Wi-Fi"
+- [x] Badge 📡/🔥 per stanze BLE/Hotspot
+- [x] Gestione robusta del server WebSocket (SO_REUSEADDR, stop asincrono)
 - [ ] Resume trasferimenti interrotti
 - [ ] Notifiche push locali
 
 ### v2.0
-- [ ] Modalità BLE-only completa
+- [ ] Modalità BLE-only completa (transfer via GATT)
 - [ ] Playlist condivise
 - [ ] Anteprima audio streaming
 - [ ] Compressione audio on-the-fly
