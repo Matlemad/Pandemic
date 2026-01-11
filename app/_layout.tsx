@@ -39,8 +39,8 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="index" />
-          <Stack.Screen name="host" />
           <Stack.Screen name="join" />
+          <Stack.Screen name="lan-host" />
           <Stack.Screen name="room" />
           <Stack.Screen name="library" />
           <Stack.Screen name="settings" />

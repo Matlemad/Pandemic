@@ -84,8 +84,17 @@ class VenueDiscoveryManager {
       this.isAdvertising = false;
       this.onAdvertiseError?.(data.message || 'Advertisement error');
     });
+    
+    // Debug events for troubleshooting discovery issues
+    const sub7 = this.nativeEmitter.addListener('venue_service_discovered', (data: any) => {
+      console.log('[VenueDiscovery] Service discovered (before resolve):', data.name, data.type);
+    });
+    
+    const sub8 = this.nativeEmitter.addListener('venue_resolve_failed', (data: any) => {
+      console.error('[VenueDiscovery] Service resolve failed:', data.name, 'errorCode:', data.errorCode);
+    });
 
-    this.subscriptions = [sub1, sub2, sub3, sub4, sub5, sub6];
+    this.subscriptions = [sub1, sub2, sub3, sub4, sub5, sub6, sub7, sub8];
   }
 
   private parseServiceData(data: any): DiscoveredVenueHost | null {
@@ -119,15 +128,25 @@ class VenueDiscoveryManager {
       return false;
     }
 
+    // If already discovering, restart it (helps on older Android)
     if (this.isDiscovering) {
-      return true;
+      console.log('[VenueDiscovery] Already discovering, restarting...');
+      try {
+        await VenueDiscoveryModule.stopDiscovery();
+        this.isDiscovering = false;
+        // Longer delay to let NsdManager clear pending resolutions (Android bug workaround)
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      } catch (e) {
+        console.warn('[VenueDiscovery] Error stopping before restart:', e);
+      }
     }
 
     try {
-      this.discoveredHosts.clear();
+      // Don't clear hosts - keep existing ones
+      console.log('[VenueDiscovery] Starting discovery for:', VENUE_SERVICE_TYPE);
       await VenueDiscoveryModule.startDiscovery(VENUE_SERVICE_TYPE);
       this.isDiscovering = true;
-      console.log('[VenueDiscovery] Started');
+      console.log('[VenueDiscovery] Started successfully');
       return true;
     } catch (error) {
       console.error('[VenueDiscovery] Failed to start:', error);

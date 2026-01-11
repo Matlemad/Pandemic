@@ -2,7 +2,7 @@
  * Home Screen - Main Entry Point
  */
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,16 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Platform,
+  PermissionsAndroid,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAppStore } from '../src/stores/appStore';
 import { useRoomStore } from '../src/stores/roomStore';
 import { useTransferStore } from '../src/stores/transferStore';
+import { bleService } from '../src/services/BleService';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../src/constants/theme';
 
 const { width } = Dimensions.get('window');
@@ -25,9 +29,96 @@ export default function HomeScreen() {
   const networkCapabilities = useAppStore((state) => state.networkCapabilities);
   const activeTransferCount = useTransferStore((state) => state.activeTransferCount);
   const room = useRoomStore((state) => state.room);
+  
+  // Permission states
+  const [bleReady, setBleReady] = useState(false);
+  const [locationReady, setLocationReady] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  // Request permissions and initialize BLE on mount
+  const initializePermissions = useCallback(async () => {
+    setIsInitializing(true);
+    
+    try {
+      if (Platform.OS === 'android') {
+        const androidVersion = Platform.Version as number;
+        console.log('[Home] Requesting permissions (Android', androidVersion, ')');
+        
+        let permissionsToRequest: any[] = [];
+        
+        if (androidVersion >= 33) {
+          // Android 13+ (needs POST_NOTIFICATIONS)
+          permissionsToRequest = [
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+          ];
+        } else if (androidVersion >= 31) {
+          // Android 12+
+          permissionsToRequest = [
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          ];
+        } else {
+          // Android < 12
+          permissionsToRequest = [
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          ];
+        }
+        
+        const results = await PermissionsAndroid.requestMultiple(permissionsToRequest);
+        
+        // Check location permission
+        const locationGranted = results[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] === 'granted';
+        setLocationReady(locationGranted);
+        
+        // Check BLE permissions
+        if (androidVersion >= 31) {
+          const bleGranted = 
+            results[PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN] === 'granted' &&
+            results[PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT] === 'granted';
+          setBleReady(bleGranted);
+          console.log('[Home] Android 12+ BLE permissions:', bleGranted);
+        } else {
+          // On older Android, BLE is ready if location is granted
+          // Note: User must also have Bluetooth turned ON
+          setBleReady(locationGranted);
+          console.log('[Home] Android <12 - BLE ready via location:', locationGranted);
+        }
+        
+        console.log('[Home] Permissions granted:', { locationGranted, androidVersion });
+      } else {
+        // iOS - permissions handled by system automatically
+        setBleReady(true);
+        setLocationReady(true);
+      }
+      
+      // Initialize BLE service
+      try {
+        await bleService.initialize();
+        console.log('[Home] BLE service initialized');
+        setBleReady(true);
+      } catch (bleError) {
+        console.warn('[Home] BLE initialization failed:', bleError);
+      }
+      
+    } catch (error) {
+      console.error('[Home] Permission request failed:', error);
+    } finally {
+      setIsInitializing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    initializePermissions();
+  }, [initializePermissions]);
 
   // If already in a room, redirect to room screen
-  React.useEffect(() => {
+  useEffect(() => {
     if (room) {
       router.replace('/room');
     }
@@ -68,20 +159,61 @@ export default function HomeScreen() {
               </Text>
             </View>
           </View>
+          <View style={styles.divider} />
+          <View style={styles.statusRow}>
+            {isInitializing ? (
+              <>
+                <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: Spacing.md }} />
+                <View style={styles.statusInfo}>
+                  <Text style={styles.statusLabel}>Inizializzazione...</Text>
+                  <Text style={styles.statusValue}>Richiesta permessi</Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.statusIcon}>
+                  {bleReady && locationReady ? '✅' : '⚠️'}
+                </Text>
+                <View style={styles.statusInfo}>
+                  <Text style={styles.statusLabel}>Bluetooth & Posizione</Text>
+                  <Text style={[
+                    styles.statusValue,
+                    { color: bleReady && locationReady ? Colors.secondary : Colors.accent }
+                  ]}>
+                    {bleReady && locationReady 
+                      ? 'Pronto per la scoperta' 
+                      : !bleReady && !locationReady 
+                        ? 'Permessi mancanti'
+                        : !bleReady 
+                          ? 'Bluetooth non pronto'
+                          : 'Posizione non attiva'}
+                  </Text>
+                </View>
+                {(!bleReady || !locationReady) && (
+                  <TouchableOpacity 
+                    style={styles.retryButton}
+                    onPress={initializePermissions}
+                  >
+                    <Text style={styles.retryButtonText}>🔄</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </View>
         </View>
 
         {/* Main Actions */}
         <View style={styles.actionsSection}>
           <TouchableOpacity
-            style={[styles.actionCard, styles.hostCard]}
-            onPress={() => router.push('/host')}
+            style={[styles.actionCard, styles.lanCard]}
+            onPress={() => router.push('/lan-host')}
             activeOpacity={0.85}
           >
-            <View style={styles.actionGlow} />
-            <Text style={styles.actionIcon}>🎛️</Text>
+            <View style={[styles.actionGlow, styles.lanGlow]} />
+            <Text style={styles.actionIcon}>📡</Text>
             <Text style={styles.actionTitle}>Crea Stanza</Text>
             <Text style={styles.actionDescription}>
-              Diventa host e permetti agli altri di connettersi
+              Ospita una stanza Wi-Fi/hotspot (cross-platform)
             </Text>
           </TouchableOpacity>
 
@@ -95,19 +227,6 @@ export default function HomeScreen() {
             <Text style={styles.actionTitle}>Trova Stanze</Text>
             <Text style={styles.actionDescription}>
               Cerca stanze attive nelle vicinanze
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionCard, styles.lanCard]}
-            onPress={() => router.push('/lan-host')}
-            activeOpacity={0.85}
-          >
-            <View style={[styles.actionGlow, styles.lanGlow]} />
-            <Text style={styles.actionIcon}>📡</Text>
-            <Text style={styles.actionTitle}>Crea LAN Room</Text>
-            <Text style={styles.actionDescription}>
-              Ospita una stanza via Wi-Fi/hotspot (cross-platform)
             </Text>
           </TouchableOpacity>
         </View>
@@ -238,6 +357,15 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.xs,
   },
 
+  retryButton: {
+    padding: Spacing.sm,
+    marginLeft: Spacing.sm,
+  },
+
+  retryButtonText: {
+    fontSize: 20,
+  },
+
   // Actions
   actionsSection: {
     gap: Spacing.md,
@@ -250,12 +378,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     ...Shadows.lg,
-  },
-
-  hostCard: {
-    backgroundColor: Colors.surface,
-    borderWidth: 2,
-    borderColor: Colors.primary,
   },
 
   joinCard: {

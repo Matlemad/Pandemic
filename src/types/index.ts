@@ -56,6 +56,7 @@ export interface RoomInfo {
   wifiAvailable: boolean;
   peerCount: number;
   createdAt: number;
+  locked?: boolean; // If true, only host can share files
 }
 
 export interface DiscoveredRoom extends RoomInfo {

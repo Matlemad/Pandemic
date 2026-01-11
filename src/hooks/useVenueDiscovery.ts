@@ -58,18 +58,24 @@ export function useVenueDiscovery(): UseVenueDiscoveryResult {
   }, []);
 
   const startDiscovery = useCallback(async () => {
+    console.log('[VenueDiscovery] Starting discovery, available:', isVenueDiscoveryAvailable);
+    
     if (!isVenueDiscoveryAvailable) {
+      console.warn('[VenueDiscovery] Not available on this platform');
       setError('Venue discovery non disponibile su questa piattaforma');
       return;
     }
 
     setError(null);
-    setVenueHosts([]);
+    // Don't clear hosts on restart - only add/update
+    // setVenueHosts([]);
     
     const success = await venueDiscovery.startDiscovery();
+    console.log('[VenueDiscovery] Started:', success);
     setIsScanning(success);
     
     if (!success) {
+      console.error('[VenueDiscovery] Failed to start');
       setError('Impossibile avviare la ricerca venue');
     }
   }, []);

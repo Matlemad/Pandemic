@@ -69,10 +69,18 @@ export default function JoinScreen() {
   } | null>(null);
   const [isLoadingCredentials, setIsLoadingCredentials] = useState(false);
 
-  // Start scanning on mount
+  // Start scanning on mount with periodic refresh
   useEffect(() => {
     startScan();
+    
+    // Refresh discovery every 30 seconds to keep it active (especially on older Android)
+    const refreshInterval = setInterval(() => {
+      console.log('[Join] Periodic discovery refresh');
+      startScan();
+    }, 30000);
+    
     return () => {
+      clearInterval(refreshInterval);
       roomService.stopScanning();
       // Don't stop venue discovery if we're already connected to a venue
       // This prevents disconnection when navigating away
@@ -319,6 +327,20 @@ export default function JoinScreen() {
         roomStore.removePeer(peerId);
       });
       
+      // Update room info when received from host (includes lock status)
+      venueLanTransport.setOnRoomJoined((info) => {
+        console.log('[Venue] Room info received, locked:', info.locked);
+        const state = useRoomStore.getState();
+        const currentRoom = state.room;
+        if (currentRoom) {
+          // Update locked status from host
+          state.joinRoom({
+            ...currentRoom,
+            locked: info.locked ?? false,
+          });
+        }
+      });
+      
       await venueLanTransport.connectToVenueHost(venue);
       
       // Set room in store so room.tsx doesn't redirect back
@@ -331,6 +353,7 @@ export default function JoinScreen() {
         wifiAvailable: true,
         peerCount: 0,
         createdAt: Date.now(),
+        locked: venue.txt.lock === '1',
       });
       
       router.replace('/room');

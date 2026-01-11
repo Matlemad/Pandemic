@@ -325,9 +325,11 @@ Apri http://localhost:8787 per:
 7. Per scaricare: Tocca il pulsante download → File salvato in Library automaticamente
 
 **Fallback connessione manuale:**
-Se mDNS non funziona (reti con AP isolation, Android 11):
+Se mDNS non funziona (reti con AP isolation, Android vecchi):
 - Tocca "📶 Connetti manualmente a Venue Host"
 - Inserisci IP del laptop (es. `192.168.1.5`) e porta (`8787`)
+
+⚠️ **Nota**: Su Android 10 e precedenti (API 30-), la discovery mDNS può essere intermittente. Vedi [ANDROID_DISCOVERY_ISSUES.md](./ANDROID_DISCOVERY_ISSUES.md) per dettagli e workaround implementati.
 
 📖 Dettagli completi in [P2P_README.md](./P2P_README.md)
 
@@ -408,6 +410,7 @@ La **Libreria Audio** è il punto centrale per gestire i tuoi file audio:
 - ⚠️ Background comunque limitato
 - ⚠️ **Hotspot richiede conferma utente** - `WifiNetworkSuggestion` mostra sempre una notifica
 - ⚠️ Android 12+ richiede permessi BLE runtime (`BLUETOOTH_ADVERTISE`, `BLUETOOTH_CONNECT`)
+- ⚠️ **mDNS Discovery limitata su Android vecchi (API 30-)** - La discovery di stanze via Wi‑Fi può essere intermittente. Vedi [ANDROID_DISCOVERY_ISSUES.md](./ANDROID_DISCOVERY_ISSUES.md) per dettagli e workaround.
 
 ### Generale
 
@@ -610,6 +613,7 @@ sdk.dir=/Users/<USERNAME>/Library/Android/sdk
 - **Testing e scenari QA**: `TESTING.md`
 - **Setup ambiente & troubleshooting**: `SETUP_GUIDE.md`, `RESET_COMPLETE.md`, `FIX_PERMISSIONS.md`, `FIX_ERROR.md`
 - **Deep linking e routing**: `DEEP_LINKING.md`
+- **Problemi discovery Android/mDNS**: `ANDROID_DISCOVERY_ISSUES.md`
 
 Questi file sono pensati per nuovi sviluppatori che entrano nel progetto e vogliono una panoramica completa di architettura, protocolli e setup ambiente.
 

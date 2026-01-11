@@ -33,6 +33,7 @@ interface VenueRoomInfo {
   roomName: string;
   hostId: string;
   peerCount: number;
+  locked?: boolean;
 }
 
 // ============================================================================
@@ -154,12 +155,14 @@ export class VenueLanTransport {
         host: match[1],
         port: parseInt(match[2], 10),
         name: 'Hotspot Host',
-        roomName: 'Hotspot Room',
-        roomId: '',
-        locked: false,
-        relay: true,
-        version: 1,
-        lastSeen: Date.now(),
+        txt: {
+          v: '1',
+          room: 'Hotspot Room',
+          relay: '1',
+          lock: '0',
+        },
+        fullName: 'Hotspot Host._audiowallet._tcp.local.',
+        discoveredAt: Date.now(),
       };
     }
 
@@ -383,7 +386,7 @@ export class VenueLanTransport {
   }
 
   private handleRoomInfo(message: any): void {
-    console.log('[VenueLan] Joined room:', message.roomName);
+    console.log('[VenueLan] Joined room:', message.roomName, 'locked:', message.locked);
     
     this.currentRoomId = message.roomId;
     
@@ -392,6 +395,7 @@ export class VenueLanTransport {
       roomName: message.roomName,
       hostId: message.hostId,
       peerCount: message.peerCount,
+      locked: message.locked ?? false,
     });
   }
 
@@ -439,16 +443,40 @@ export class VenueLanTransport {
 
   private handleDisconnect(): void {
     this.stopHeartbeat();
+    
+    const previousHost = this.currentHost;
+    
     this.connectionState = VenueConnectionState.DISCONNECTED;
     this.onConnectionStateChange?.(this.connectionState);
     this.roomPeers.clear();
     this.sharedFiles.clear();
     this.currentRoomId = null;
-    this.currentHost = null;
+    this.ws = null;
     
-    // Notify listeners that we've been disconnected
-    console.log('[VenueLan] Disconnected from host');
-    this.onDisconnected?.();
+    // Try to auto-reconnect if we had a host
+    if (previousHost && this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      console.log(`[VenueLan] Attempting auto-reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+      
+      setTimeout(async () => {
+        try {
+          await this.connectToVenueHost(previousHost);
+          console.log('[VenueLan] Auto-reconnect successful');
+        } catch (error) {
+          console.error('[VenueLan] Auto-reconnect failed:', error);
+          // If all retries exhausted, notify disconnect
+          if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+            this.currentHost = null;
+            this.onDisconnected?.();
+          }
+        }
+      }, 2000 * this.reconnectAttempts); // Exponential backoff: 2s, 4s, 6s
+    } else {
+      // No host or max retries reached
+      this.currentHost = null;
+      console.log('[VenueLan] Disconnected from host');
+      this.onDisconnected?.();
+    }
   }
 
   /**

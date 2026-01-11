@@ -245,7 +245,7 @@ export class PhoneHostServer {
     
     try {
       const json = typeof message === 'string' ? message : JSON.stringify(message);
-      await LanHostModule.broadcast(json);
+      await LanHostModule.broadcastMessage(json);
     } catch (error) {
       console.error('[PhoneHostServer] Failed to broadcast:', error);
     }

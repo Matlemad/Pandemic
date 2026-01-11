@@ -130,9 +130,11 @@ export default function RoomScreen() {
   if (!room) return null;
 
   const isHost = role === RoomRole.HOST;
-  // In venue mode (WiFi LAN), everyone can share files
+  // In venue mode (WiFi LAN), everyone can share files unless room is locked
   const isVenueMode = isVenueModeCheck;
-  const canShare = isHost || isVenueMode; // Host or venue participant can share
+  const isRoomLocked = room.locked === true;
+  // Host can always share; others can only share if room is not locked
+  const canShare = isHost || (isVenueMode && !isRoomLocked);
   const myFiles = sharedFiles.filter((f) => f.ownerId === deviceId);
   const otherFiles = sharedFiles.filter((f) => f.ownerId !== deviceId);
   const activeTransfers = transfers.filter(

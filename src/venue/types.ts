@@ -34,6 +34,8 @@ export interface VenueTxtRecord {
   room?: string;
   /** Relay support ("1" = supported) */
   relay?: string;
+  /** Room locked ("1" = only host can share files) */
+  lock?: string;
 }
 
 // ============================================================================
