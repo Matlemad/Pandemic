@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Release files (too large for git)
+release/
+venue-host/bin/

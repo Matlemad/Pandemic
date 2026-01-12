@@ -1,6 +1,28 @@
+# Dependencies
 node_modules/
-dist/
-.env
-*.log
-.data/
 
+# Build outputs
+dist/
+dist-pkg/
+dist-bundle/
+
+# Executables (too large for git)
+bin/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Host state (persisted data)
+host-state.json
+
+# Logs
+*.log

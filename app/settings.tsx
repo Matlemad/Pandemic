@@ -45,10 +45,10 @@ export default function SettingsScreen() {
     try {
       const diagnostics = await runBleDiagnostics();
       const formatted = formatDiagnostics(diagnostics);
-      Alert.alert('Diagnostica BLE', formatted);
+      Alert.alert('BLE Diagnostics', formatted);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      Alert.alert('Errore', `Errore durante la diagnostica: ${errorMessage}`);
+      Alert.alert('Error', `Diagnostic error: ${errorMessage}`);
     } finally {
       setDiagnosticsRunning(false);
     }
@@ -57,14 +57,14 @@ export default function SettingsScreen() {
   const handleResetApp = () => {
     Alert.alert(
       'Reset App',
-      'Questo cancellerà tutte le impostazioni e la libreria locale. Continuare?',
+      'This will delete all settings and the local library. Continue?',
       [
-        { text: 'Annulla', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Reset',
           style: 'destructive',
           onPress: () => {
-            Alert.alert('Funzionalità non implementata');
+            Alert.alert('Feature not implemented');
           },
         },
       ]
@@ -74,7 +74,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Header
-        title="Impostazioni"
+        title="Settings"
         showBack
         onBack={() => router.back()}
       />
@@ -82,7 +82,7 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Device Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>DISPOSITIVO</Text>
+          <Text style={styles.sectionTitle}>DEVICE</Text>
 
           <View style={styles.card}>
             <TouchableOpacity
@@ -90,7 +90,7 @@ export default function SettingsScreen() {
               onPress={() => setEditingName(true)}
             >
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Nome dispositivo</Text>
+                <Text style={styles.settingLabel}>Device name</Text>
                 {editingName ? (
                   <TextInput
                     style={styles.nameInput}
@@ -114,7 +114,7 @@ export default function SettingsScreen() {
 
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>ID dispositivo</Text>
+                <Text style={styles.settingLabel}>Device ID</Text>
                 <Text style={styles.settingValueMono}>
                   {deviceId.slice(0, 8)}...{deviceId.slice(-4)}
                 </Text>
@@ -125,14 +125,14 @@ export default function SettingsScreen() {
 
         {/* Transfer Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>TRASFERIMENTI</Text>
+          <Text style={styles.sectionTitle}>TRANSFERS</Text>
 
           <View style={styles.card}>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Qualità compressione</Text>
+                <Text style={styles.settingLabel}>Compression quality</Text>
                 <Text style={styles.settingDescription}>
-                  Per file condivisi
+                  For shared files
                 </Text>
               </View>
               <View style={styles.qualityPicker}>
@@ -152,8 +152,8 @@ export default function SettingsScreen() {
                       ]}
                     >
                       {quality === 'original' ? 'Orig' : 
-                       quality === 'high' ? 'Alta' :
-                       quality === 'medium' ? 'Media' : 'Bassa'}
+                       quality === 'high' ? 'High' :
+                       quality === 'medium' ? 'Med' : 'Low'}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -164,9 +164,9 @@ export default function SettingsScreen() {
 
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Trasferimenti simultanei</Text>
+                <Text style={styles.settingLabel}>Concurrent transfers</Text>
                 <Text style={styles.settingDescription}>
-                  Massimo {settings.maxConcurrentTransfers}
+                  Maximum {settings.maxConcurrentTransfers}
                 </Text>
               </View>
               <View style={styles.stepper}>
@@ -198,9 +198,9 @@ export default function SettingsScreen() {
 
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Mantieni schermo acceso</Text>
+                <Text style={styles.settingLabel}>Keep screen on</Text>
                 <Text style={styles.settingDescription}>
-                  Durante i trasferimenti
+                  During transfers
                 </Text>
               </View>
               <Switch
@@ -215,7 +215,7 @@ export default function SettingsScreen() {
 
         {/* Diagnostics Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>DIAGNOSTICA</Text>
+          <Text style={styles.sectionTitle}>DIAGNOSTICS</Text>
 
           <View style={styles.card}>
             <TouchableOpacity
@@ -224,9 +224,9 @@ export default function SettingsScreen() {
               disabled={diagnosticsRunning}
             >
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Esegui diagnostica BLE</Text>
+                <Text style={styles.settingLabel}>Run BLE diagnostics</Text>
                 <Text style={styles.settingDescription}>
-                  Verifica lo stato del Bluetooth e dei permessi
+                  Check Bluetooth and permissions status
                 </Text>
               </View>
               <Text style={styles.settingArrow}>
@@ -238,9 +238,9 @@ export default function SettingsScreen() {
 
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>⚠️ Nota BLE</Text>
+                <Text style={styles.settingLabel}>⚠️ BLE Note</Text>
                 <Text style={styles.settingDescription}>
-                  L'advertising BLE non è ancora completamente implementato. Le stanze potrebbero non essere visibili immediatamente.
+                  BLE advertising is not fully implemented yet. Rooms may not be immediately visible.
                 </Text>
               </View>
             </View>
@@ -254,7 +254,7 @@ export default function SettingsScreen() {
           <View style={styles.card}>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Versione</Text>
+                <Text style={styles.settingLabel}>Version</Text>
               </View>
               <Text style={styles.settingValue}>1.0.0</Text>
             </View>
@@ -263,7 +263,7 @@ export default function SettingsScreen() {
 
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Architettura</Text>
+                <Text style={styles.settingLabel}>Architecture</Text>
               </View>
               <Text style={styles.settingValue}>BLE + Wi-Fi LAN</Text>
             </View>
@@ -272,7 +272,7 @@ export default function SettingsScreen() {
 
         {/* Danger Zone */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, styles.dangerTitle]}>ZONA PERICOLOSA</Text>
+          <Text style={[styles.sectionTitle, styles.dangerTitle]}>DANGER ZONE</Text>
 
           <View style={[styles.card, styles.dangerCard]}>
             <TouchableOpacity
@@ -281,10 +281,10 @@ export default function SettingsScreen() {
             >
               <View style={styles.settingInfo}>
                 <Text style={[styles.settingLabel, styles.dangerText]}>
-                  Reset applicazione
+                  Reset application
                 </Text>
                 <Text style={styles.settingDescription}>
-                  Cancella tutte le impostazioni e la libreria
+                  Delete all settings and library
                 </Text>
               </View>
               <Text style={styles.settingArrow}>🗑️</Text>

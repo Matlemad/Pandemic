@@ -9,9 +9,11 @@
     "web": "expo start --web",
     "prebuild": "expo prebuild",
     "build:android": "expo build:android",
+    "build:android:release": "cd android && JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew assembleRelease",
     "build:ios": "expo build:ios",
     "lint": "eslint . --ext .ts,.tsx",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "release:prepare": "./scripts/prepare-release.sh"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",

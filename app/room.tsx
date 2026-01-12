@@ -109,8 +109,8 @@ export default function RoomScreen() {
     venueLanTransport.setOnDisconnected(() => {
       console.log('[Room] Disconnected from venue host');
       Alert.alert(
-        'Disconnesso',
-        'La connessione al venue host è stata persa.',
+        'Disconnected',
+        'Connection to venue host was lost.',
         [{ text: 'OK', onPress: () => {
           roomStore.leaveRoom();
           router.replace('/');
@@ -143,14 +143,14 @@ export default function RoomScreen() {
 
   const handleLeaveRoom = () => {
     Alert.alert(
-      isHost ? 'Chiudi stanza?' : 'Esci dalla stanza?',
+      isHost ? 'Close room?' : 'Leave room?',
       isHost
-        ? 'Tutti i partecipanti verranno disconnessi.'
-        : 'I trasferimenti in corso verranno annullati.',
+        ? 'All participants will be disconnected.'
+        : 'Ongoing transfers will be cancelled.',
       [
-        { text: 'Annulla', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: isHost ? 'Chiudi' : 'Esci',
+          text: isHost ? 'Close' : 'Leave',
           style: 'destructive',
           onPress: async () => {
             await roomService.leaveRoom();
@@ -252,18 +252,18 @@ export default function RoomScreen() {
             console.log('[Room] Track added to library:', trackTitle);
             
             completeTransfer(transferId);
-            Alert.alert('Download completato', `"${trackTitle}" è stato aggiunto alla tua libreria.`);
+            Alert.alert('Download complete', `"${trackTitle}" has been added to your library.`);
           } catch (error: any) {
             console.error('[Room] Failed to save downloaded file:', error);
             cancelTransfer(transferId);
-            Alert.alert('Errore', 'Impossibile salvare il file scaricato.');
+            Alert.alert('Error', 'Unable to save downloaded file.');
           }
         },
         // Error callback
         (error) => {
           console.error('[Room] Download error:', error);
           cancelTransfer(transferId);
-          Alert.alert('Errore download', error);
+          Alert.alert('Download error', error);
         }
       );
     } else {
@@ -305,7 +305,7 @@ export default function RoomScreen() {
         onPress={() => setActiveTab('transfers')}
       >
         <Text style={[styles.tabText, activeTab === 'transfers' && styles.activeTabText]}>
-          📥 Trasferimenti ({activeTransfers.length})
+          📥 Transfers ({activeTransfers.length})
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
@@ -327,14 +327,14 @@ export default function RoomScreen() {
       ListHeaderComponent={
         myFiles.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>I tuoi file condivisi</Text>
+            <Text style={styles.sectionTitle}>Your shared files</Text>
             {myFiles.map((file) => (
               <View key={file.fileId} style={styles.fileWrapper}>
                 <FileCard file={file} onPress={() => {}} />
               </View>
             ))}
             <Text style={[styles.sectionTitle, { marginTop: Spacing.lg }]}>
-              File disponibili
+              Available files
             </Text>
           </View>
         ) : null
@@ -358,13 +358,13 @@ export default function RoomScreen() {
       ListEmptyComponent={
         <EmptyState
           icon="📂"
-          title="Nessun file disponibile"
+          title="No files available"
           description={
             canShare
-              ? 'Condividi file dalla tua libreria per iniziare'
-              : 'Nessuno sta condividendo file in questa stanza'
+              ? 'Share files from your library to get started'
+              : 'No one is sharing files in this room'
           }
-          actionTitle={canShare ? 'Condividi file' : undefined}
+          actionTitle={canShare ? 'Share files' : undefined}
           onAction={canShare ? handleShareFiles : undefined}
         />
       }
@@ -387,8 +387,8 @@ export default function RoomScreen() {
       ListEmptyComponent={
         <EmptyState
           icon="📦"
-          title="Nessun trasferimento"
-          description="I trasferimenti attivi e completati appariranno qui"
+          title="No transfers"
+          description="Active and completed transfers will appear here"
         />
       }
     />
@@ -408,20 +408,20 @@ export default function RoomScreen() {
           </View>
           <View style={styles.peerInfo}>
             <Text style={styles.peerName}>{item.peerName}</Text>
-            <Text style={styles.peerMeta}>
-              {item.sharedFileCount} file condivisi • {item.isOnline ? '🟢 Online' : '⚪ Offline'}
-            </Text>
+          <Text style={styles.peerMeta}>
+            {item.sharedFileCount} shared file{item.sharedFileCount === 1 ? '' : 's'} • {item.isOnline ? '🟢 Online' : '⚪ Offline'}
+          </Text>
           </View>
         </View>
       )}
       ListEmptyComponent={
         <EmptyState
           icon="👥"
-          title={isHost ? 'In attesa di partecipanti' : 'Solo tu nella stanza'}
+          title={isHost ? 'Waiting for participants' : 'Only you in the room'}
           description={
             isHost
-              ? 'Altri dispositivi possono unirsi scansionando la stanza'
-              : 'Altri partecipanti appariranno qui'
+              ? 'Other devices can join by scanning for the room'
+              : 'Other participants will appear here'
           }
         />
       }
@@ -441,12 +441,12 @@ export default function RoomScreen() {
       <View style={styles.statusBar}>
         <View style={styles.statusItem}>
           <Text style={styles.statusIcon}>👥</Text>
-          <Text style={styles.statusText}>{peers.length + 1} nella stanza</Text>
+          <Text style={styles.statusText}>{peers.length + 1} in room</Text>
         </View>
         <View style={styles.statusDivider} />
         <View style={styles.statusItem}>
           <Text style={styles.statusIcon}>📁</Text>
-          <Text style={styles.statusText}>{sharedFiles.length} file</Text>
+          <Text style={styles.statusText}>{sharedFiles.length} file{sharedFiles.length === 1 ? '' : 's'}</Text>
         </View>
         <View style={styles.statusDivider} />
         <View style={styles.statusItem}>

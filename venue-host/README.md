@@ -9,26 +9,74 @@ Local LAN venue host for cross-platform audio sharing between Android and iOS de
 - **Room Management**: Tracks connected peers and shared file metadata
 - **File Relay**: Transfers files between devices via the host (no direct peer-to-peer required)
 
-## Requirements
+## Quick Start (Standalone Executable)
+
+**No Node.js required!** Download the prebuilt executable for your platform:
+
+| Platform | File | Size |
+|----------|------|------|
+| macOS (Apple Silicon) | `pandemic-venue-host-macos-arm64` | ~45MB |
+| macOS (Intel) | `pandemic-venue-host-macos-x64` | ~50MB |
+| Windows | `pandemic-venue-host-win-x64.exe` | ~36MB |
+| Linux | `pandemic-venue-host-linux-x64` | ~44MB |
+
+### Usage
+
+1. **Download** the executable for your platform from `bin/`
+2. **Run** it (double-click or from terminal)
+3. **Dashboard** opens automatically at http://localhost:8787
+4. **Create a room** and start sharing!
+
+```bash
+# macOS/Linux
+./pandemic-venue-host-macos-arm64
+
+# Windows
+pandemic-venue-host-win-x64.exe
+```
+
+> ⚠️ On macOS, you may need to allow the app in System Preferences → Security & Privacy
+
+---
+
+## Development Setup
+
+If you want to modify the code:
+
+### Requirements
 
 - Node.js 18+
-- pnpm (or npm/yarn)
+- npm (or pnpm/yarn)
 - Same Wi-Fi network as the mobile devices
 
-## Quick Start
+### Development
 
 ```bash
 # Install dependencies
 cd venue-host
-pnpm install
+npm install
 
-# Start development server
-pnpm dev
+# Start development server (hot reload)
+npm run dev
 
 # Or build and run production
-pnpm build
-pnpm start
+npm run build
+npm start
 ```
+
+### Building Executables
+
+```bash
+# Build for all platforms
+npm run pkg:all
+
+# Build for specific platform
+npm run pkg:mac      # macOS ARM64
+npm run pkg:win      # Windows x64
+npm run pkg:linux    # Linux x64
+```
+
+Executables are output to `bin/`.
 
 ## Configuration
 

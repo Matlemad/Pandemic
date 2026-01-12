@@ -155,17 +155,17 @@ export default function JoinScreen() {
       } else {
         // No hotspot credentials - this is a regular LAN room, try to join directly
         Alert.alert(
-          'Stanza LAN Trovata',
-          `Per unirti a "${room.roomName}", assicurati di essere sulla stessa rete Wi-Fi dell'host.`,
+          'LAN Room Found',
+          `To join "${room.roomName}", make sure you're on the same Wi-Fi network as the host.`,
           [
-            { text: 'Annulla', style: 'cancel' },
-            { text: 'Prova a Connettersi', onPress: () => handleJoinRoom(room) },
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Try to Connect', onPress: () => handleJoinRoom(room) },
           ]
         );
       }
     } catch (error: any) {
       console.error('[Join] Failed to get credentials:', error);
-      Alert.alert('Errore', 'Impossibile ottenere le credenziali hotspot. Riprova.');
+      Alert.alert('Error', 'Unable to get hotspot credentials. Try again.');
     } finally {
       setIsLoadingCredentials(false);
       setSelectedId(null);
@@ -175,11 +175,11 @@ export default function JoinScreen() {
   // Show password in alert for easy copying
   const handleCopyPassword = () => {
     if (hotspotInfo?.password) {
-      Alert.alert(
-        'Password Hotspot',
-        hotspotInfo.password,
-        [{ text: 'OK' }]
-      );
+        Alert.alert(
+          'Hotspot Password',
+          hotspotInfo.password,
+          [{ text: 'OK' }]
+        );
     }
   };
   
@@ -202,7 +202,7 @@ export default function JoinScreen() {
           await Linking.openSettings();
         }
       } catch {
-        Alert.alert('Errore', 'Impossibile aprire le impostazioni Wi-Fi. Aprile manualmente.');
+        Alert.alert('Error', 'Unable to open Wi-Fi settings. Please open them manually.');
       }
     }
   };
@@ -245,8 +245,8 @@ export default function JoinScreen() {
         router.replace('/room');
       } else {
         Alert.alert(
-          'Connessione Fallita',
-          'Non riesco a trovare l\'host. Assicurati di essere connesso all\'hotspot e riprova.',
+          'Connection Failed',
+          'Unable to find the host. Make sure you are connected to the hotspot and try again.',
           [{ text: 'OK' }]
         );
       }
@@ -273,13 +273,13 @@ export default function JoinScreen() {
         router.replace('/room');
       } else {
         Alert.alert(
-          'Connessione fallita',
-          'Impossibile connettersi alla stanza. Riprova.',
+          'Connection failed',
+          'Unable to connect to the room. Try again.',
           [{ text: 'OK', onPress: () => setSelectedId(null) }]
         );
       }
     } catch (error: any) {
-      Alert.alert('Errore', error.message || 'Errore durante la connessione');
+      Alert.alert('Error', error.message || 'Connection error');
       setSelectedId(null);
     } finally {
       setIsJoining(false);
@@ -303,8 +303,8 @@ export default function JoinScreen() {
       venueLanTransport.setOnDisconnected(() => {
         console.log('Disconnected from host');
         Alert.alert(
-          'Disconnesso',
-          'La connessione al venue host è stata persa.',
+          'Disconnected',
+          'Connection to venue host was lost.',
           [{ text: 'OK', onPress: () => {
             roomStore.leaveRoom();
             router.replace('/');
@@ -388,8 +388,8 @@ export default function JoinScreen() {
       router.replace('/room');
     } catch (error: any) {
       Alert.alert(
-        'Connessione Venue fallita',
-        error.message || 'Impossibile connettersi al venue host.',
+        'Venue Connection Failed',
+        error.message || 'Unable to connect to venue host.',
         [{ text: 'OK', onPress: () => setSelectedId(null) }]
       );
     } finally {
@@ -400,7 +400,7 @@ export default function JoinScreen() {
   // Handle manual venue connection
   const handleManualConnect = async () => {
     if (!manualIp.trim()) {
-      Alert.alert('Errore', 'Inserisci un indirizzo IP');
+      Alert.alert('Error', 'Please enter an IP address');
       return;
     }
     
@@ -438,7 +438,7 @@ export default function JoinScreen() {
   
   if (sortedRooms.length > 0) {
     sections.push({
-      title: '📱 Stanze Vicine (P2P)',
+      title: '📱 Nearby Rooms (P2P)',
       type: 'p2p',
       data: sortedRooms,
     });
@@ -450,8 +450,8 @@ export default function JoinScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Header
-        title="Trova Stanze"
-        subtitle={isAnySanning ? 'Ricerca in corso...' : `${totalCount} stanze trovate`}
+        title="Find Rooms"
+        subtitle={isAnySanning ? 'Searching...' : `${totalCount} room${totalCount === 1 ? '' : 's'} found`}
         showBack
         onBack={() => {
           roomService.stopScanning();
@@ -468,10 +468,10 @@ export default function JoinScreen() {
           <ActivityIndicator size="small" color={Colors.secondary} />
           <Text style={styles.scanningText}>
             {venueScanning && isScanning
-              ? 'Cercando P2P e Venue...'
+              ? 'Searching P2P and Venue...'
               : venueScanning
-              ? 'Cercando venue hosts...'
-              : 'Cercando stanze P2P...'}
+              ? 'Searching venue hosts...'
+              : 'Searching P2P rooms...'}
           </Text>
         </View>
       )}
@@ -487,13 +487,13 @@ export default function JoinScreen() {
             </TouchableOpacity>
           </View>
           <Text style={styles.warningText}>
-            La discovery automatica potrebbe non funzionare su questa versione di Android.
+            Automatic discovery may not work on this Android version.
           </Text>
           <TouchableOpacity 
             style={styles.warningConnectButton}
             onPress={() => setShowManualConnect(true)}
           >
-            <Text style={styles.warningConnectButtonText}>📶 Connetti Manualmente</Text>
+            <Text style={styles.warningConnectButtonText}>📶 Connect Manually</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -537,7 +537,7 @@ export default function JoinScreen() {
                   {selectedId === venueId && isJoining && (
                     <View style={styles.joiningOverlay}>
                       <ActivityIndicator size="large" color={Colors.accent} />
-                      <Text style={styles.joiningText}>Connessione al Venue...</Text>
+                      <Text style={styles.joiningText}>Connecting to Venue...</Text>
                     </View>
                   )}
                 </View>
@@ -566,7 +566,7 @@ export default function JoinScreen() {
                     <View style={styles.joiningOverlay}>
                       <ActivityIndicator size="large" color={Colors.primary} />
                       <Text style={styles.joiningText}>
-                        {isLoadingCredentials ? 'Lettura credenziali...' : 'Connessione in corso...'}
+                        {isLoadingCredentials ? 'Reading credentials...' : 'Connecting...'}
                       </Text>
                     </View>
                   )}
@@ -581,13 +581,13 @@ export default function JoinScreen() {
       ) : !isAnySanning ? (
         <EmptyState
           icon="📡"
-          title="Nessuna stanza trovata"
+          title="No rooms found"
           description={
             venueAvailable
-              ? 'Assicurati che ci siano stanze P2P vicine o che tu sia connesso alla stessa rete Wi-Fi del venue host.'
-              : 'Assicurati che il Bluetooth sia attivo e che ci siano stanze attive nelle vicinanze.'
+              ? 'Make sure there are nearby P2P rooms or that you are connected to the same Wi-Fi network as the venue host.'
+              : 'Make sure Bluetooth is active and there are active rooms nearby.'
           }
-          actionTitle="Riprova"
+          actionTitle="Retry"
           onAction={handleRefresh}
         />
       ) : null}
@@ -595,12 +595,12 @@ export default function JoinScreen() {
       {/* Tips */}
       {totalCount === 0 && !isAnySanning && (
         <View style={styles.tips}>
-          <Text style={styles.tipsTitle}>💡 Suggerimenti</Text>
-          <Text style={styles.tipText}>• Avvicinati al dispositivo host (P2P)</Text>
-          <Text style={styles.tipText}>• Connettiti alla stessa rete Wi-Fi del Venue</Text>
-          <Text style={styles.tipText}>• Verifica che il Bluetooth sia attivo</Text>
+          <Text style={styles.tipsTitle}>💡 Tips</Text>
+          <Text style={styles.tipText}>• Get closer to the host device (P2P)</Text>
+          <Text style={styles.tipText}>• Connect to the same Wi-Fi network as the Venue</Text>
+          <Text style={styles.tipText}>• Make sure Bluetooth is enabled</Text>
           {venueAvailable && (
-            <Text style={styles.tipText}>• I Venue Rooms funzionano anche Android↔iOS</Text>
+            <Text style={styles.tipText}>• Venue Rooms work across Android↔iOS</Text>
           )}
         </View>
       )}
@@ -610,7 +610,7 @@ export default function JoinScreen() {
         style={styles.manualConnectButton}
         onPress={() => setShowManualConnect(true)}
       >
-        <Text style={styles.manualConnectText}>📶 Connetti manualmente a Venue Host</Text>
+        <Text style={styles.manualConnectText}>📶 Connect manually to Venue Host</Text>
       </TouchableOpacity>
 
       {/* Hotspot Credentials Modal */}
@@ -622,21 +622,21 @@ export default function JoinScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>🔥 Connessione Hotspot</Text>
+            <Text style={styles.modalTitle}>🔥 Hotspot Connection</Text>
             <Text style={styles.modalSubtitle}>
-              Per unirti a "{hotspotInfo?.roomName}", connettiti all'hotspot dell'host:
+              To join "{hotspotInfo?.roomName}", connect to the host's hotspot:
             </Text>
             
             <View style={styles.hotspotCredentials}>
               <View style={styles.hotspotRow}>
-                <Text style={styles.hotspotLabel}>Nome Rete:</Text>
+                <Text style={styles.hotspotLabel}>Network Name:</Text>
                 <Text style={styles.hotspotValue}>{hotspotInfo?.ssid}</Text>
               </View>
               
               <View style={styles.hotspotRow}>
                 <Text style={styles.hotspotLabel}>Password:</Text>
                 <View style={styles.passwordRow}>
-                  <Text style={styles.hotspotValue}>{hotspotInfo?.password || '(nessuna)'}</Text>
+                  <Text style={styles.hotspotValue}>{hotspotInfo?.password || '(none)'}</Text>
                   {hotspotInfo?.password && (
                     <TouchableOpacity onPress={handleCopyPassword} style={styles.copyButton}>
                       <Text style={styles.copyButtonText}>📋</Text>
@@ -647,9 +647,9 @@ export default function JoinScreen() {
             </View>
             
             <Text style={styles.hotspotInstructions}>
-              1. Premi "Apri Wi-Fi" per andare alle impostazioni{'\n'}
-              2. Connettiti a "{hotspotInfo?.ssid}"{'\n'}
-              3. Torna qui e premi "Sono Connesso"
+              1. Press "Open Wi-Fi Settings" to go to settings{'\n'}
+              2. Connect to "{hotspotInfo?.ssid}"{'\n'}
+              3. Come back here and press "I'm Connected"
             </Text>
             
             {/* Open Wi-Fi Settings Button */}
@@ -657,7 +657,7 @@ export default function JoinScreen() {
               style={styles.openWifiButton}
               onPress={openWifiSettings}
             >
-              <Text style={styles.openWifiButtonText}>📶 Apri Impostazioni Wi-Fi</Text>
+              <Text style={styles.openWifiButtonText}>📶 Open Wi-Fi Settings</Text>
             </TouchableOpacity>
             
             <View style={styles.modalButtons}>
@@ -668,7 +668,7 @@ export default function JoinScreen() {
                   setHotspotInfo(null);
                 }}
               >
-                <Text style={styles.modalCancelText}>Annulla</Text>
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalConnectButton}
@@ -678,7 +678,7 @@ export default function JoinScreen() {
                 {isJoining ? (
                   <ActivityIndicator size="small" color={Colors.textPrimary} />
                 ) : (
-                  <Text style={styles.modalConnectText}>✅ Sono Connesso</Text>
+                  <Text style={styles.modalConnectText}>✅ I'm Connected</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -695,12 +695,12 @@ export default function JoinScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Connessione Manuale</Text>
+            <Text style={styles.modalTitle}>Manual Connection</Text>
             <Text style={styles.modalSubtitle}>
-              Inserisci l'IP del venue host (visibile nella console del server)
+              Enter the venue host IP (visible in the server console)
             </Text>
             
-            <Text style={styles.inputLabel}>Indirizzo IP</Text>
+            <Text style={styles.inputLabel}>IP Address</Text>
             <TextInput
               style={styles.textInput}
               value={manualIp}
@@ -711,7 +711,7 @@ export default function JoinScreen() {
               autoCapitalize="none"
             />
             
-            <Text style={styles.inputLabel}>Porta (default: 8787)</Text>
+            <Text style={styles.inputLabel}>Port (default: 8787)</Text>
             <TextInput
               style={styles.textInput}
               value={manualPort}
@@ -726,13 +726,13 @@ export default function JoinScreen() {
                 style={styles.modalCancelButton}
                 onPress={() => setShowManualConnect(false)}
               >
-                <Text style={styles.modalCancelText}>Annulla</Text>
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalConnectButton}
                 onPress={handleManualConnect}
               >
-                <Text style={styles.modalConnectText}>Connetti</Text>
+                <Text style={styles.modalConnectText}>Connect</Text>
               </TouchableOpacity>
             </View>
           </View>

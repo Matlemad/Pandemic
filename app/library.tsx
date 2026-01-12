@@ -128,10 +128,10 @@ export default function LibraryScreen() {
         importedCount++;
       }
 
-      Alert.alert('Successo', `${importedCount} file importati`);
+      Alert.alert('Success', `${importedCount} file${importedCount === 1 ? '' : 's'} imported`);
     } catch (error: any) {
       console.error('[Library] Import failed:', error);
-      Alert.alert('Errore', error.message || 'Impossibile importare i file');
+      Alert.alert('Error', error.message || 'Unable to import files');
     } finally {
       setIsImporting(false);
     }
@@ -175,12 +175,12 @@ export default function LibraryScreen() {
 
   const handleDeleteTrack = (track: LibraryTrack) => {
     Alert.alert(
-      'Elimina traccia',
-      `Vuoi eliminare "${track.title}" dalla libreria?`,
+      'Delete track',
+      `Do you want to delete "${track.title}" from your library?`,
       [
-        { text: 'Annulla', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Elimina',
+          text: 'Delete',
           style: 'destructive',
           onPress: async () => {
             // Stop if currently playing
@@ -240,8 +240,8 @@ export default function LibraryScreen() {
     await roomService.shareFiles(localFiles);
 
     Alert.alert(
-      'File condivisi',
-      `${selectedTracks.length} file sono ora disponibili nella stanza`,
+      'Files shared',
+      `${selectedTracks.length} file${selectedTracks.length === 1 ? ' is' : 's are'} now available in the room`,
       [{ text: 'OK', onPress: () => router.back() }]
     );
   };
@@ -385,7 +385,7 @@ export default function LibraryScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Caricamento libreria...</Text>
+          <Text style={styles.loadingText}>Loading library...</Text>
         </View>
       </SafeAreaView>
     );
@@ -396,8 +396,8 @@ export default function LibraryScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Header
-        title="La tua libreria"
-        subtitle={`${tracks.length} tracce`}
+        title="Your Library"
+        subtitle={`${tracks.length} track${tracks.length === 1 ? '' : 's'}`}
         showBack
         onBack={() => router.back()}
         rightIcon={isImporting ? undefined : '➕'}
@@ -408,7 +408,7 @@ export default function LibraryScreen() {
       {room && (
         <View style={styles.selectionBanner}>
           <Text style={styles.selectionBannerText}>
-            📤 Seleziona le tracce da condividere nella stanza
+            📤 Select tracks to share in the room
           </Text>
         </View>
       )}
@@ -418,12 +418,12 @@ export default function LibraryScreen() {
         <View style={styles.statsRow}>
           <View style={styles.stat}>
             <Text style={styles.statValue}>{tracks.length}</Text>
-            <Text style={styles.statLabel}>Tracce</Text>
+            <Text style={styles.statLabel}>Tracks</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.stat}>
             <Text style={styles.statValue}>{formatFileSize(totalSize)}</Text>
-            <Text style={styles.statLabel}>Totale</Text>
+            <Text style={styles.statLabel}>Total</Text>
           </View>
           {room && selectedIds.size > 0 && (
             <>
@@ -432,7 +432,7 @@ export default function LibraryScreen() {
                 <Text style={[styles.statValue, { color: Colors.primary }]}>
                   {selectedIds.size}
                 </Text>
-                <Text style={styles.statLabel}>Selezionate</Text>
+                <Text style={styles.statLabel}>Selected</Text>
               </View>
             </>
           )}
@@ -448,9 +448,9 @@ export default function LibraryScreen() {
         ListEmptyComponent={
           <EmptyState
             icon="🎵"
-            title="Libreria vuota"
-            description="Importa file audio per iniziare"
-            actionTitle="Importa file"
+            title="Library empty"
+            description="Import audio files to get started"
+            actionTitle="Import files"
             onAction={handleImportFile}
           />
         }
@@ -460,7 +460,7 @@ export default function LibraryScreen() {
       {room && selectedIds.size > 0 && (
         <View style={styles.shareBar}>
           <Button
-            title={`Condividi ${selectedIds.size} tracce`}
+            title={`Share ${selectedIds.size} track${selectedIds.size === 1 ? '' : 's'}`}
             onPress={handleShareSelected}
             fullWidth
             size="lg"
@@ -490,7 +490,7 @@ export default function LibraryScreen() {
               {currentTrack.title}
             </Text>
             <Text style={styles.playerArtist} numberOfLines={1}>
-              {currentTrack.artist || 'Artista sconosciuto'}
+              {currentTrack.artist || 'Unknown artist'}
             </Text>
           </View>
 
@@ -526,7 +526,7 @@ export default function LibraryScreen() {
       {isImporting && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingOverlayText}>Importazione in corso...</Text>
+          <Text style={styles.loadingOverlayText}>Importing...</Text>
         </View>
       )}
     </SafeAreaView>

@@ -132,7 +132,7 @@ export default function HomeScreen() {
           <Text style={styles.logo}>🦠</Text>
           <Text style={styles.title}>PANDEMIC</Text>
           <Text style={styles.subtitle}>
-            Condividi audio localmente{'\n'}Nessuna connessione internet richiesta
+            Share audio locally{'\n'}No internet connection required
           </Text>
         </View>
 
@@ -141,7 +141,7 @@ export default function HomeScreen() {
           <View style={styles.statusRow}>
             <Text style={styles.statusIcon}>📱</Text>
             <View style={styles.statusInfo}>
-              <Text style={styles.statusLabel}>Dispositivo</Text>
+              <Text style={styles.statusLabel}>Device</Text>
               <Text style={styles.statusValue}>{deviceName}</Text>
             </View>
           </View>
@@ -151,11 +151,11 @@ export default function HomeScreen() {
               {networkCapabilities.wifiAvailable ? '📶' : '📵'}
             </Text>
             <View style={styles.statusInfo}>
-              <Text style={styles.statusLabel}>Rete Locale</Text>
+              <Text style={styles.statusLabel}>Local Network</Text>
               <Text style={styles.statusValue}>
                 {networkCapabilities.wifiAvailable
-                  ? `Wi-Fi (${networkCapabilities.localIpAddress || 'connesso'})`
-                  : 'Solo Bluetooth'}
+                  ? `Wi-Fi (${networkCapabilities.localIpAddress || 'connected'})`
+                  : 'Bluetooth Only'}
               </Text>
             </View>
           </View>
@@ -165,8 +165,8 @@ export default function HomeScreen() {
               <>
                 <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: Spacing.md }} />
                 <View style={styles.statusInfo}>
-                  <Text style={styles.statusLabel}>Inizializzazione...</Text>
-                  <Text style={styles.statusValue}>Richiesta permessi</Text>
+                  <Text style={styles.statusLabel}>Initializing...</Text>
+                  <Text style={styles.statusValue}>Requesting permissions</Text>
                 </View>
               </>
             ) : (
@@ -175,18 +175,18 @@ export default function HomeScreen() {
                   {bleReady && locationReady ? '✅' : '⚠️'}
                 </Text>
                 <View style={styles.statusInfo}>
-                  <Text style={styles.statusLabel}>Bluetooth & Posizione</Text>
+                  <Text style={styles.statusLabel}>Bluetooth & Location</Text>
                   <Text style={[
                     styles.statusValue,
                     { color: bleReady && locationReady ? Colors.secondary : Colors.accent }
                   ]}>
                     {bleReady && locationReady 
-                      ? 'Pronto per la scoperta' 
+                      ? 'Ready for discovery' 
                       : !bleReady && !locationReady 
-                        ? 'Permessi mancanti'
+                        ? 'Missing permissions'
                         : !bleReady 
-                          ? 'Bluetooth non pronto'
-                          : 'Posizione non attiva'}
+                          ? 'Bluetooth not ready'
+                          : 'Location not active'}
                   </Text>
                 </View>
                 {(!bleReady || !locationReady) && (
@@ -211,9 +211,9 @@ export default function HomeScreen() {
           >
             <View style={[styles.actionGlow, styles.lanGlow]} />
             <Text style={styles.actionIcon}>📡</Text>
-            <Text style={styles.actionTitle}>Crea Stanza</Text>
+            <Text style={styles.actionTitle}>Create Room</Text>
             <Text style={styles.actionDescription}>
-              Ospita una stanza Wi-Fi/hotspot (cross-platform)
+              Host a Wi-Fi/hotspot room (cross-platform)
             </Text>
           </TouchableOpacity>
 
@@ -224,9 +224,9 @@ export default function HomeScreen() {
           >
             <View style={[styles.actionGlow, styles.joinGlow]} />
             <Text style={styles.actionIcon}>🔍</Text>
-            <Text style={styles.actionTitle}>Trova Stanze</Text>
+            <Text style={styles.actionTitle}>Find Rooms</Text>
             <Text style={styles.actionDescription}>
-              Cerca stanze attive nelle vicinanze
+              Search for active rooms nearby
             </Text>
           </TouchableOpacity>
         </View>
@@ -238,7 +238,7 @@ export default function HomeScreen() {
             onPress={() => router.push('/library')}
           >
             <Text style={styles.quickLinkIcon}>🎵</Text>
-            <Text style={styles.quickLinkText}>La mia libreria</Text>
+            <Text style={styles.quickLinkText}>My Library</Text>
             <Text style={styles.quickLinkArrow}>→</Text>
           </TouchableOpacity>
 
@@ -249,7 +249,7 @@ export default function HomeScreen() {
             >
               <Text style={styles.quickLinkIcon}>📥</Text>
               <Text style={styles.quickLinkText}>
-                {activeTransferCount} trasferiment{activeTransferCount === 1 ? 'o' : 'i'} attiv{activeTransferCount === 1 ? 'o' : 'i'}
+                {activeTransferCount} active transfer{activeTransferCount === 1 ? '' : 's'}
               </Text>
               <Text style={styles.quickLinkArrow}>→</Text>
             </TouchableOpacity>
@@ -260,7 +260,7 @@ export default function HomeScreen() {
             onPress={() => router.push('/settings')}
           >
             <Text style={styles.quickLinkIcon}>⚙️</Text>
-            <Text style={styles.quickLinkText}>Impostazioni</Text>
+            <Text style={styles.quickLinkText}>Settings</Text>
             <Text style={styles.quickLinkArrow}>→</Text>
           </TouchableOpacity>
         </View>

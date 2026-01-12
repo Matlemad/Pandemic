@@ -130,7 +130,7 @@ export default function LanHostScreen() {
   
   const handleStartHosting = async () => {
     if (!roomName.trim()) {
-      Alert.alert('Errore', 'Inserisci un nome per la stanza');
+      Alert.alert('Error', 'Please enter a room name');
       return;
     }
     
@@ -139,8 +139,8 @@ export default function LanHostScreen() {
     
     if (!wifiAvailable) {
       Alert.alert(
-        'Rete Richiesta',
-        'Per ospitare una LAN room, devi essere connesso a una rete Wi-Fi o avere un hotspot attivo.\n\nAttiva l\'hotspot dal tuo dispositivo o connettiti a una rete Wi-Fi.',
+        'Network Required',
+        'To host a LAN room, you must be connected to a Wi-Fi network or have a hotspot active.\n\nEnable your device hotspot or connect to a Wi-Fi network.',
         [{ text: 'OK' }]
       );
       return;
@@ -155,7 +155,7 @@ export default function LanHostScreen() {
       // Start WebSocket server
       const serverStarted = await phoneHostServer.start(room);
       if (!serverStarted) {
-        throw new Error('Impossibile avviare il server WebSocket');
+        throw new Error('Unable to start WebSocket server');
       }
       
       // Start mDNS advertisement
@@ -199,8 +199,8 @@ export default function LanHostScreen() {
               if (!advertiseGranted || !connectGranted) {
                 console.warn('[LanHost] BLE permissions not granted:', permissions);
                 Alert.alert(
-                  'Permessi BLE Richiesti',
-                  'Per permettere ad altri di trovarti via Bluetooth, devi concedere i permessi Bluetooth nelle impostazioni.',
+                  'BLE Permissions Required',
+                  'To allow others to find you via Bluetooth, you must grant Bluetooth permissions in settings.',
                   [{ text: 'OK' }]
                 );
               }
@@ -236,16 +236,16 @@ export default function LanHostScreen() {
       setPeerCount(0);
       
       const message = isHotspotMode && hotspotSSID.trim()
-        ? `La stanza "${room.name}" è ora attiva.\n\n` +
+        ? `Room "${room.name}" is now active.\n\n` +
           `📡 Hotspot: ${hotspotSSID}\n` +
-          (bleStarted ? '✅ BLE attivo - altri device possono trovarti via Bluetooth' : '⚠️ BLE non disponibile') +
-          '\n\nAltri dispositivi possono trovarti e connettersi all\'hotspot automaticamente.'
-        : `La stanza "${room.name}" è ora attiva.\n\nAltri dispositivi sulla stessa rete Wi-Fi/hotspot possono trovarla e unirsi.`;
+          (bleStarted ? '✅ BLE active - other devices can find you via Bluetooth' : '⚠️ BLE not available') +
+          '\n\nOther devices can find you and connect to the hotspot automatically.'
+        : `Room "${room.name}" is now active.\n\nOther devices on the same Wi-Fi/hotspot network can find and join it.`;
       
-      Alert.alert('Stanza Creata', message, [{ text: 'OK' }]);
+      Alert.alert('Room Created', message, [{ text: 'OK' }]);
     } catch (error: any) {
       console.error('[LanHost] Failed to start hosting:', error);
-      Alert.alert('Errore', error.message || 'Impossibile avviare la stanza');
+      Alert.alert('Error', error.message || 'Unable to start room');
       setIsHosting(false);
     } finally {
       setIsStarting(false);
@@ -254,12 +254,12 @@ export default function LanHostScreen() {
   
   const handleStopHosting = async () => {
     Alert.alert(
-      'Chiudere Stanza?',
-      'Tutti i peer verranno disconnessi e la stanza non sarà più visibile.',
+      'Close Room?',
+      'All peers will be disconnected and the room will no longer be visible.',
       [
-        { text: 'Annulla', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Chiudi',
+          text: 'Close',
           style: 'destructive',
           onPress: async () => {
             setIsStopping(true);
@@ -288,7 +288,7 @@ export default function LanHostScreen() {
               setPeerCount(0);
             } catch (error: any) {
               console.error('[LanHost] Failed to stop hosting:', error);
-              Alert.alert('Errore', error.message || 'Impossibile fermare la stanza');
+              Alert.alert('Error', error.message || 'Unable to stop room');
             } finally {
               setIsStopping(false);
             }
@@ -341,23 +341,23 @@ export default function LanHostScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Instructions */}
           <View style={styles.instructionsCard}>
-            <Text style={styles.instructionsTitle}>📡 Come Funziona</Text>
+            <Text style={styles.instructionsTitle}>📡 How It Works</Text>
             <Text style={styles.instructionsText}>
-              • Attiva l'hotspot del tuo dispositivo OPPURE connettiti a una rete Wi-Fi{'\n'}
-              • Altri dispositivi devono essere sulla stessa rete{'\n'}
-              • La stanza apparirà automaticamente nella loro app{'\n'}
-              • Funziona offline, senza internet
+              • Enable your device hotspot OR connect to a Wi-Fi network{'\n'}
+              • Other devices must be on the same network{'\n'}
+              • The room will appear automatically in their app{'\n'}
+              • Works offline, no internet required
             </Text>
           </View>
           
           {/* Room Name */}
           <View style={styles.section}>
-            <Text style={styles.label}>Nome Stanza</Text>
+            <Text style={styles.label}>Room Name</Text>
             <TextInput
               style={styles.input}
               value={roomName}
               onChangeText={setRoomName}
-              placeholder="Nome della stanza"
+              placeholder="Enter room name"
               placeholderTextColor={Colors.textMuted}
               editable={!isHosting}
             />
@@ -367,9 +367,9 @@ export default function LanHostScreen() {
           <View style={styles.section}>
             <View style={styles.switchRow}>
               <View style={styles.switchInfo}>
-                <Text style={styles.label}>Blocca Stanza</Text>
+                <Text style={styles.label}>Lock Room</Text>
                 <Text style={styles.hint}>
-                  Solo tu puoi caricare file. Gli altri possono solo scaricare.
+                  Only you can upload files. Others can only download.
                 </Text>
               </View>
               <Switch
@@ -385,9 +385,9 @@ export default function LanHostScreen() {
           <View style={styles.section}>
             <View style={styles.switchRow}>
               <View style={styles.switchInfo}>
-                <Text style={styles.label}>🔥 Modalità Hotspot</Text>
+                <Text style={styles.label}>🔥 Hotspot Mode</Text>
                 <Text style={styles.hint}>
-                  Usi il tuo hotspot? Inserisci le credenziali per permettere agli altri di trovarti via Bluetooth.
+                  Using your hotspot? Enter the credentials to let others find you via Bluetooth.
                 </Text>
               </View>
               <Switch
@@ -403,18 +403,18 @@ export default function LanHostScreen() {
           {/* Hotspot Credentials */}
           {isHotspotMode && (
             <View style={styles.hotspotCard}>
-              <Text style={styles.hotspotTitle}>Credenziali Hotspot</Text>
+              <Text style={styles.hotspotTitle}>Hotspot Credentials</Text>
               <Text style={styles.hotspotHint}>
-                Questi dati verranno condivisi via Bluetooth con chi ti cerca.
+                This information will be shared via Bluetooth with those searching for you.
               </Text>
               
               <View style={styles.hotspotField}>
-                <Text style={styles.hotspotLabel}>Nome Rete (SSID)</Text>
+                <Text style={styles.hotspotLabel}>Network Name (SSID)</Text>
                 <TextInput
                   style={styles.input}
                   value={hotspotSSID}
                   onChangeText={setHotspotSSID}
-                  placeholder="Es: iPhone di Mario"
+                  placeholder="E.g.: John's iPhone"
                   placeholderTextColor={Colors.textMuted}
                   editable={!isHosting}
                   autoCapitalize="none"
@@ -427,7 +427,7 @@ export default function LanHostScreen() {
                   style={styles.input}
                   value={hotspotPassword}
                   onChangeText={setHotspotPassword}
-                  placeholder="Password hotspot"
+                  placeholder="Hotspot password"
                   placeholderTextColor={Colors.textMuted}
                   editable={!isHosting}
                   secureTextEntry={false}
@@ -440,30 +440,30 @@ export default function LanHostScreen() {
           {/* Status */}
           {isHosting && (
             <View style={styles.statusCard}>
-              <Text style={styles.statusTitle}>Stato Stanza</Text>
+              <Text style={styles.statusTitle}>Room Status</Text>
               
               <View style={styles.statusRow}>
-                <Text style={styles.statusLabel}>Stato:</Text>
+                <Text style={styles.statusLabel}>Status:</Text>
                 <View style={styles.statusBadge}>
                   <View style={[styles.statusDot, { backgroundColor: Colors.success }]} />
-                  <Text style={styles.statusValue}>Attiva</Text>
+                  <Text style={styles.statusValue}>Active</Text>
                 </View>
               </View>
               
               <View style={styles.statusRow}>
                 <Text style={styles.statusLabel}>mDNS:</Text>
                 <Text style={styles.statusValue}>
-                  {isAdvertising ? '✅ Pubblicato' : '❌ Non pubblicato'}
+                  {isAdvertising ? '✅ Published' : '❌ Not published'}
                 </Text>
               </View>
               
               <View style={styles.statusRow}>
-                <Text style={styles.statusLabel}>Porta:</Text>
+                <Text style={styles.statusLabel}>Port:</Text>
                 <Text style={styles.statusValue}>8787</Text>
               </View>
               
               <View style={styles.statusRow}>
-                <Text style={styles.statusLabel}>Peer connessi:</Text>
+                <Text style={styles.statusLabel}>Connected peers:</Text>
                 <Text style={styles.statusValue}>{peerCount}</Text>
               </View>
               
@@ -471,7 +471,7 @@ export default function LanHostScreen() {
                 <View style={styles.statusRow}>
                   <Text style={styles.statusLabel}>BLE:</Text>
                   <Text style={styles.statusValue}>
-                    {isBleAdvertising ? '✅ Attivo' : '❌ Non attivo'}
+                    {isBleAdvertising ? '✅ Active' : '❌ Not active'}
                   </Text>
                 </View>
               )}
@@ -487,13 +487,13 @@ export default function LanHostScreen() {
           
           {/* Network Info */}
           <View style={styles.networkCard}>
-            <Text style={styles.networkLabel}>Stato Rete:</Text>
+            <Text style={styles.networkLabel}>Network Status:</Text>
             <Text style={[styles.networkValue, { color: wifiAvailable ? Colors.success : Colors.warning }]}>
               {localIp 
-                ? `✅ Connesso (${localIp})`
+                ? `✅ Connected (${localIp})`
                 : wifiAvailable
-                  ? '📡 Hotspot/Rete rilevata'
-                  : '⚠️ Nessuna connessione'}
+                  ? '📡 Hotspot/Network detected'
+                  : '⚠️ No connection'}
             </Text>
           </View>
           
@@ -501,7 +501,7 @@ export default function LanHostScreen() {
           <View style={styles.actions}>
             {!isHosting ? (
               <Button
-                title={isStarting ? 'Avvio in corso...' : 'Avvia Stanza'}
+                title={isStarting ? 'Starting...' : 'Start Room'}
                 onPress={handleStartHosting}
                 disabled={isStarting}
                 loading={isStarting}
@@ -509,7 +509,7 @@ export default function LanHostScreen() {
               />
             ) : (
               <Button
-                title={isStopping ? 'Chiusura in corso...' : 'Chiudi Stanza'}
+                title={isStopping ? 'Closing...' : 'Close Room'}
                 onPress={handleStopHosting}
                 disabled={isStopping}
                 loading={isStopping}

@@ -66,7 +66,7 @@ export const VenueRoomCard: React.FC<VenueRoomCardProps> = ({
         
         <View style={styles.footer}>
           <View style={styles.connectionInfo}>
-            <Text style={styles.connectionLabel}>Indirizzo:</Text>
+            <Text style={styles.connectionLabel}>Address:</Text>
             <Text style={styles.connectionValue}>
               {venue.host}:{venue.port}
             </Text>

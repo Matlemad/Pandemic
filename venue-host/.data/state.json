@@ -1,0 +1,22 @@
+{
+  "room": {
+    "id": "gwfJtckFHS",
+    "name": "asd",
+    "locked": false,
+    "createdAt": 1766945417731,
+    "updatedAt": 1768148970565
+  },
+  "hostFiles": [
+    {
+      "id": "nUf5PysJGktp",
+      "title": "5. ODIA L'ALTRO RC2",
+      "fileName": "5. ODIA L'ALTRO RC2.mp3",
+      "size": 3732687,
+      "mimeType": "audio/mpeg",
+      "sha256": "59893f0e309df491da3a171e9735b3827178fe2c653e2de79924988c6f7a19e9",
+      "pathOnDisk": "/Users/matteotambussi/Documents/GitHub/Pandemic/venue-host/.data/files/nUf5PysJGktp_5._ODIA_L_ALTRO_RC2.mp3",
+      "createdAt": 1766945533112,
+      "published": true
+    }
+  ]
+}
