@@ -748,10 +748,17 @@ CLEANUP:
 │  ✓ Local network: nessuna permission speciale                  │
 │  ⚠️ Background: Doze mode può interferire                      │
 │                                                                 │
+│  ⚠️ mDNS/NSD (Android 10-11):                                  │
+│  ❌ NsdManager può risolvere UN servizio alla volta            │
+│  ❌ errorCode:3 (ALREADY_ACTIVE) frequente                     │
+│  ❌ Discovery inaffidabile anche con workaround                │
+│  → Usare connessione manuale o hotspot mode                    │
+│                                                                 │
 │  Best Practices:                                                │
 │  • Request all permissions upfront                             │
 │  • Use foreground service for long transfers                   │
 │  • Handle Doze mode properly                                   │
+│  • Acquire WiFi Multicast Lock for mDNS                        │
 │                                                                 │
 │  Required permissions:                                          │
 │  • BLUETOOTH                                                    │
@@ -761,6 +768,7 @@ CLEANUP:
 │  • BLUETOOTH_ADVERTISE                                          │
 │  • ACCESS_FINE_LOCATION                                         │
 │  • ACCESS_WIFI_STATE                                            │
+│  • CHANGE_WIFI_MULTICAST_STATE                                  │
 │  • READ_MEDIA_AUDIO (Android 13+)                              │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
@@ -777,5 +785,6 @@ CLEANUP:
 
 ---
 
-*Documento generato per PANDEMIC v1.0.0*
+*Documento generato per PANDEMIC v1.2.0*  
+*Ultimo aggiornamento: 2026-01-12*
 

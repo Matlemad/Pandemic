@@ -52,13 +52,28 @@ class VenueDiscoveryManager {
     });
 
     const sub2 = this.nativeEmitter.addListener('venue_service_lost', (data: any) => {
+      console.log('[VenueDiscovery] Service lost:', data.name);
+      
+      // Try to find by host:port first (resolved services)
       const host = this.parseServiceData(data);
-      if (host) {
+      if (host && host.host) {
         const key = this.getHostKey(host);
         const existing = this.discoveredHosts.get(key);
         if (existing) {
           this.discoveredHosts.delete(key);
           this.onHostLost?.(existing);
+          return;
+        }
+      }
+      
+      // Fallback: find by name (for unresolved services)
+      if (data.name) {
+        for (const [key, existing] of this.discoveredHosts.entries()) {
+          if (existing.name === data.name) {
+            this.discoveredHosts.delete(key);
+            this.onHostLost?.(existing);
+            return;
+          }
         }
       }
     });
@@ -93,8 +108,13 @@ class VenueDiscoveryManager {
     const sub8 = this.nativeEmitter.addListener('venue_resolve_failed', (data: any) => {
       console.error('[VenueDiscovery] Service resolve failed:', data.name, 'errorCode:', data.errorCode);
     });
+    
+    // Debug: resolution queue status
+    const sub9 = this.nativeEmitter.addListener('venue_resolution_status', (data: any) => {
+      console.log('[VenueDiscovery] Resolution status:', data.status, data.name || '', 'queue:', data.queueSize ?? data.remaining ?? 0);
+    });
 
-    this.subscriptions = [sub1, sub2, sub3, sub4, sub5, sub6, sub7, sub8];
+    this.subscriptions = [sub1, sub2, sub3, sub4, sub5, sub6, sub7, sub8, sub9];
   }
 
   private parseServiceData(data: any): DiscoveredVenueHost | null {
@@ -121,21 +141,29 @@ class VenueDiscoveryManager {
 
   /**
    * Start discovering venue hosts
+   * @param forceRestart - If true, will restart discovery even if already running
    */
-  async startDiscovery(): Promise<boolean> {
+  async startDiscovery(forceRestart = false): Promise<boolean> {
     if (!isVenueDiscoveryAvailable) {
       console.warn('[VenueDiscovery] Not available on this platform');
       return false;
     }
 
-    // If already discovering, restart it (helps on older Android)
-    if (this.isDiscovering) {
-      console.log('[VenueDiscovery] Already discovering, restarting...');
+    // If already discovering and not forcing restart, just return success
+    // This avoids interrupting ongoing resolutions (critical for older Android)
+    if (this.isDiscovering && !forceRestart) {
+      console.log('[VenueDiscovery] Already discovering, continuing (not restarting)');
+      return true;
+    }
+
+    // If forcing restart, stop first with a longer delay
+    if (this.isDiscovering && forceRestart) {
+      console.log('[VenueDiscovery] Force restarting discovery...');
       try {
         await VenueDiscoveryModule.stopDiscovery();
         this.isDiscovering = false;
         // Longer delay to let NsdManager clear pending resolutions (Android bug workaround)
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 2000));
       } catch (e) {
         console.warn('[VenueDiscovery] Error stopping before restart:', e);
       }

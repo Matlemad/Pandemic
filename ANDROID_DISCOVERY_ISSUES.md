@@ -1,8 +1,15 @@
 # 🔍 Android Discovery Issues - mDNS/NSD
 
+## ⚠️ Stato Attuale
+
+**Android 12+ (API 31+)**: Discovery funziona correttamente ✅  
+**Android 10-11 (API 29-30)**: Discovery **intermittente o non funzionante** ⚠️
+
+> **Workaround per utenti Android 10-11**: Usa **"Connessione Manuale"** (inserendo IP) o **Hotspot Mode** dove il dispositivo moderno fa da host.
+
 ## Panoramica
 
-Questo documento descrive i problemi noti con la discovery mDNS (Network Service Discovery) su Android, in particolare sui dispositivi più vecchi (API 30 e precedenti), e i workaround implementati.
+Questo documento descrive i problemi noti con la discovery mDNS (Network Service Discovery) su Android, in particolare sui dispositivi più vecchi (API 29-30), e i workaround implementati.
 
 ---
 
@@ -39,13 +46,46 @@ private fun processResolutionQueue() {
 
 ---
 
-### 2. Discovery Non Funziona Dopo Riavvio Schermata
+### 2. Discovery Viene Fermata Continuamente (RISOLTO ✅)
 
-**Problema**: Quando l'utente esce dalla schermata "Trova Stanze" e rientra, la discovery non trova più le stanze. Il problema è causato da risoluzioni pendenti nel `NsdManager` che non possono essere cancellate.
+**Problema**: La discovery veniva fermata ogni volta che veniva trovata una nuova stanza, causando la perdita di tutte le risoluzioni in corso.
+
+**Causa Root**: Il `useEffect` in `app/join.tsx` aveva dipendenze `[venueHosts.length, discoveredRooms.length]`, causando:
+1. Discovery trova servizio → risoluzione inizia
+2. Servizio risolto → `venueHosts.length` cambia
+3. **useEffect cleanup viene eseguito** → ferma la discovery
+4. **useEffect ri-eseguito** → chiama `startScan()` che svuota la lista
+5. Ciclo infinito di start/stop/clear
+
+**Fix Implementato**: **useEffect con dipendenze vuote**
+- `useEffect` principale ora ha `[]` (vuoto) → eseguito solo al mount/unmount
+- Refresh periodico usa `useRef` per leggere lo stato senza causare re-render
+- Discovery non viene più fermata quando cambia il numero di stanze
+
+**Codice**: `app/join.tsx`
+```typescript
+// Prima (BUG):
+useEffect(() => {
+  startScan();
+  return () => stopVenueDiscovery();
+}, [venueHosts.length, discoveredRooms.length]); // ❌ Causa re-esecuzione continua
+
+// Dopo (FIX):
+useEffect(() => {
+  startScan(false); // Non svuota lista esistente
+  return () => stopVenueDiscovery();
+}, []); // ✅ Solo mount/unmount
+```
+
+---
+
+### 3. Discovery Non Funziona Dopo Riavvio Schermata
+
+**Problema**: Quando l'utente esce dalla schermata "Trova Stanze" e rientra, la discovery potrebbe non trovare più le stanze. Il problema è causato da risoluzioni pendenti nel `NsdManager` che non possono essere cancellate.
 
 **Sintomi**:
 - Prima volta: la discovery funziona correttamente
-- Dopo uscita/rientro: le stanze non vengono più trovate
+- Dopo uscita/rientro: le stanze potrebbero non essere più trovate
 - Nei log: `Service discovered` ma nessun `Service resolved`
 
 **Workaround Implementato**: **Release NsdManager + Delay**
@@ -53,6 +93,8 @@ private fun processResolutionQueue() {
 2. Questo cancella tutte le risoluzioni pendenti
 3. Quando si riavvia, viene creato un nuovo `NsdManager`
 4. Delay di 1.5s prima di riavviare per dare tempo al sistema di pulire lo stato
+
+**Nota**: Con la fix del bug #2, questo problema è meno frequente perché la discovery non viene più fermata continuamente.
 
 **Codice**: `android/app/src/main/java/com/pandemic/app/venue/VenueDiscoveryModule.kt`
 ```kotlin
@@ -72,7 +114,7 @@ if (this.isDiscovering) {
 
 ---
 
-### 3. mDNS Non Funziona su Android Vecchi (API 30-)
+### 4. mDNS Non Funziona su Android Vecchi (API 30-)
 
 **Problema**: Su Android 10 (API 29) e precedenti, i pacchetti mDNS multicast vengono filtrati quando il dispositivo entra in risparmio energetico. Questo causa la mancata ricezione dei pacchetti di discovery.
 
@@ -110,33 +152,33 @@ fun startDiscovery(serviceType: String, promise: Promise) {
 
 ---
 
-## 📋 Limitazioni Rimanenti
+## 📋 Limitazioni Rimanenti e Raccomandazioni
 
-### 1. Discovery Non Affidabile al 100%
+### Discovery NON affidabile su Android 10-11
 
-Nonostante i workaround implementati, la discovery mDNS su Android può ancora essere **intermittente**, in particolare su:
-- **Android 10 e precedenti** (API 29-)
-- **Router con AP isolation abilitato**
-- **Reti Wi‑Fi con filtri multicast aggressivi**
+Nonostante tutti i workaround implementati (coda sequenziale, multicast lock, retry con backoff), la discovery mDNS su Android 10-11 **rimane intermittente**. Questo sembra essere un bug strutturale nel `NsdManager` di Android.
 
-**Soluzioni Alternative**:
-- **Connessione Manuale**: L'app fornisce un fallback per inserire manualmente l'IP e la porta del Venue Host
-- **BLE Advertising**: Le stanze create da mobile sono pubblicate anche via BLE, che è più affidabile per la discovery
-- **Refresh Periodico**: La discovery viene riavviata ogni 30 secondi automaticamente
+**Comportamento osservato**:
+- Il dispositivo **può creare stanze** (advertising funziona) ✅
+- Il dispositivo **non riesce a trovare stanze** (discovery fallisce) ❌
+- `errorCode: 3` (ALREADY_ACTIVE) persiste anche con retry
 
-### 2. Venue Host Non Visibile
+### Raccomandazioni per Utenti
 
-Su alcuni dispositivi Android vecchi, il **Venue Host** (laptop/Raspberry Pi) potrebbe non essere scoperto, anche se:
-- È sulla stessa rete Wi‑Fi
-- Il mDNS è configurato correttamente
-- Altri dispositivi lo vedono
+| Scenario | Soluzione Raccomandata |
+|----------|------------------------|
+| Android 12+ → Android 12+ | Discovery automatica ✅ |
+| Android 12+ → Android 10-11 | **Android 12+ crea la stanza**, Android vecchio si connette manualmente |
+| Android 10-11 → qualsiasi | Crea la stanza da Android vecchio, gli altri si connettono via discovery |
+| Venue Host + Android vecchio | Usa **Connessione Manuale** (IP + porta) |
 
-**Possibili Cause**:
-- Router blocca mDNS tra dispositivi (AP isolation)
-- Firewall locale sul dispositivo Android
-- Limitazioni del sistema operativo Android
+### Connessione Manuale
 
-**Workaround**: Usa **Connessione Manuale** (opzione nell'UI "Trova Stanze")
+L'app mostra un pulsante prominente "📶 Connetti Manualmente" per dispositivi Android vecchi. L'utente può inserire:
+- **IP**: Visibile nella console del Venue Host o nella schermata "Crea LAN Room"
+- **Porta**: Default `8787`
+
+La connessione manuale **funziona sempre** perché bypassa mDNS.
 
 ---
 
@@ -204,6 +246,8 @@ Su Android, assicurati che i permessi siano concessi:
 
 ---
 
-**Ultimo Aggiornamento**: 2025-01-11  
+**Ultimo Aggiornamento**: 2026-01-12  
 **Versione Codebase**: v1.2+  
-**Status**: Workaround implementati, ma discovery può essere intermittente su Android vecchi
+**Status**: 
+- ✅ Bug discovery fermata continuamente risolto (v1.2+)
+- ⚠️ Discovery non funziona su Android 10-11. Usare connessione manuale o hotspot mode.

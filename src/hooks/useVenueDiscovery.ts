@@ -43,9 +43,16 @@ export function useVenueDiscovery(): UseVenueDiscoveryResult {
     });
 
     venueDiscovery.setOnHostLost((host) => {
-      setVenueHosts((prev) =>
-        prev.filter((h) => !(h.host === host.host && h.port === host.port))
-      );
+      console.log('[VenueDiscovery] Host lost:', host.name);
+      setVenueHosts((prev) => {
+        // Remove by host:port if available, otherwise by name
+        if (host.host && host.port) {
+          return prev.filter((h) => !(h.host === host.host && h.port === host.port));
+        } else if (host.name) {
+          return prev.filter((h) => h.name !== host.name);
+        }
+        return prev;
+      });
     });
 
     venueDiscovery.setOnError((errorMsg) => {

@@ -410,7 +410,7 @@ La **Libreria Audio** è il punto centrale per gestire i tuoi file audio:
 - ⚠️ Background comunque limitato
 - ⚠️ **Hotspot richiede conferma utente** - `WifiNetworkSuggestion` mostra sempre una notifica
 - ⚠️ Android 12+ richiede permessi BLE runtime (`BLUETOOTH_ADVERTISE`, `BLUETOOTH_CONNECT`)
-- ⚠️ **mDNS Discovery limitata su Android vecchi (API 30-)** - La discovery di stanze via Wi‑Fi può essere intermittente. Vedi [ANDROID_DISCOVERY_ISSUES.md](./ANDROID_DISCOVERY_ISSUES.md) per dettagli e workaround.
+- ⚠️ **mDNS Discovery limitata su Android 10-11 (API 29-30)** - La discovery automatica può essere intermittente o non funzionare. Workaround: usa **Hotspot mode** o **Connessione manuale**. Vedi [ANDROID_DISCOVERY_ISSUES.md](./ANDROID_DISCOVERY_ISSUES.md) per dettagli tecnici.
 
 ### Generale
 
@@ -427,8 +427,7 @@ La **Libreria Audio** è il punto centrale per gestire i tuoi file audio:
 pandemic/
 ├── app/                    # Schermate (expo-router)
 │   ├── _layout.tsx        # Root layout
-│   ├── index.tsx          # Home screen
-│   ├── host.tsx           # Create room (P2P same-platform)
+│   ├── index.tsx          # Home screen (con richiesta permessi)
 │   ├── join.tsx           # Find rooms (P2P + Venue + LAN Host)
 │   ├── room.tsx           # Active room
 │   ├── lan-host.tsx       # 📱 Phone Host Mode (crea LAN room da telefono)
@@ -551,10 +550,17 @@ L'interfaccia è ispirata all'atmosfera di un warehouse party:
 - [x] Modal con credenziali + bottone "Apri Impostazioni Wi-Fi"
 - [x] Badge 📡/🔥 per stanze BLE/Hotspot
 - [x] Gestione robusta del server WebSocket (SO_REUSEADDR, stop asincrono)
+- [x] Auto-reconnect WebSocket con exponential backoff
+- [x] Risoluzione mDNS sequenziale (workaround bug Android NSD)
+- [x] WiFi Multicast Lock per Android vecchi
+
+### v1.3 - Stabilità (In Progress)
 - [ ] Resume trasferimenti interrotti
 - [ ] Notifiche push locali
+- [ ] Migliorare discovery su Android vecchi (UDP broadcast fallback)
+- [ ] Cache IP per connessioni manuali ripetute
 
-### v2.0
+### v2.0 - Funzionalità Avanzate
 - [ ] Modalità BLE-only completa (transfer via GATT)
 - [ ] Playlist condivise
 - [ ] Anteprima audio streaming
@@ -611,9 +617,10 @@ sdk.dir=/Users/<USERNAME>/Library/Android/sdk
 
 - **Architettura dettagliata**: `ARCHITECTURE.md`
 - **Testing e scenari QA**: `TESTING.md`
-- **Setup ambiente & troubleshooting**: `SETUP_GUIDE.md`, `RESET_COMPLETE.md`, `FIX_PERMISSIONS.md`, `FIX_ERROR.md`
+- **Setup ambiente**: `SETUP_GUIDE.md`, `QUICK_START.md`
 - **Deep linking e routing**: `DEEP_LINKING.md`
 - **Problemi discovery Android/mDNS**: `ANDROID_DISCOVERY_ISSUES.md`
+- **Piano P2P (storico)**: `P2P_IMPLEMENTATION_PLAN.md`, `P2P_README.md`
 
 Questi file sono pensati per nuovi sviluppatori che entrano nel progetto e vogliono una panoramica completa di architettura, protocolli e setup ambiente.
 

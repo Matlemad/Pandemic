@@ -2,7 +2,7 @@
  * Join Screen - Discover and join nearby rooms (P2P + Venue)
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -68,30 +68,57 @@ export default function JoinScreen() {
     wsPort: number;
   } | null>(null);
   const [isLoadingCredentials, setIsLoadingCredentials] = useState(false);
+  
+  // Detect older Android with mDNS issues
+  const isOlderAndroid = Platform.OS === 'android' && Platform.Version < 31; // Android < 12
+  const [showOldAndroidWarning, setShowOldAndroidWarning] = useState(isOlderAndroid);
 
-  // Start scanning on mount with periodic refresh
+  // Start scanning on mount - only once!
   useEffect(() => {
-    startScan();
-    
-    // Refresh discovery every 30 seconds to keep it active (especially on older Android)
-    const refreshInterval = setInterval(() => {
-      console.log('[Join] Periodic discovery refresh');
-      startScan();
-    }, 30000);
+    console.log('[Join] Component mounted, starting discovery');
+    startScan(false); // Don't clear existing rooms
     
     return () => {
-      clearInterval(refreshInterval);
+      console.log('[Join] Component unmounting, stopping discovery');
       roomService.stopScanning();
       // Don't stop venue discovery if we're already connected to a venue
-      // This prevents disconnection when navigating away
       if (!venueLanTransport.isConnectedToVenue()) {
         stopVenueDiscovery();
       }
     };
-  }, []);
+  }, []); // Empty deps - only run on mount/unmount
+  
+  // Separate effect for periodic refresh - uses refs to avoid re-triggering
+  const venueHostsRef = useRef(venueHosts);
+  const discoveredRoomsRef = useRef(discoveredRooms);
+  
+  useEffect(() => {
+    venueHostsRef.current = venueHosts;
+    discoveredRoomsRef.current = discoveredRooms;
+  }, [venueHosts, discoveredRooms]);
+  
+  useEffect(() => {
+    // Periodic refresh only if nothing found (for older Android)
+    const refreshInterval = setInterval(() => {
+      const hasVenueHosts = venueHostsRef.current.length > 0;
+      const hasP2pRooms = discoveredRoomsRef.current.length > 0;
+      
+      if (!hasVenueHosts && !hasP2pRooms) {
+        console.log('[Join] No rooms found after 60s, attempting discovery refresh');
+        roomService.startScanning();
+        if (venueAvailable) {
+          startVenueDiscovery();
+        }
+      }
+    }, 60000);
+    
+    return () => clearInterval(refreshInterval);
+  }, [venueAvailable]);
 
-  const startScan = async () => {
-    clearDiscoveredRooms();
+  const startScan = async (clearExisting = true) => {
+    if (clearExisting) {
+      clearDiscoveredRooms();
+    }
     
     // Start P2P discovery
     await roomService.startScanning();
@@ -237,7 +264,8 @@ export default function JoinScreen() {
 
     try {
       roomService.stopScanning();
-      stopVenueDiscovery();
+      // Don't stop venue discovery - let it continue in background
+      // to avoid losing pending resolutions
       
       const success = await roomService.joinRoom(room);
 
@@ -265,7 +293,8 @@ export default function JoinScreen() {
 
     try {
       roomService.stopScanning();
-      stopVenueDiscovery();
+      // Don't stop venue discovery - let it continue in background
+      // to avoid losing pending resolutions
       
       // Setup callbacks before connecting
       const roomStore = useRoomStore.getState();
@@ -444,6 +473,28 @@ export default function JoinScreen() {
               ? 'Cercando venue hosts...'
               : 'Cercando stanze P2P...'}
           </Text>
+        </View>
+      )}
+      
+      {/* Warning for older Android */}
+      {showOldAndroidWarning && totalCount === 0 && (
+        <View style={styles.oldAndroidWarning}>
+          <View style={styles.warningHeader}>
+            <Text style={styles.warningIcon}>⚠️</Text>
+            <Text style={styles.warningTitle}>Android {Platform.Version}</Text>
+            <TouchableOpacity onPress={() => setShowOldAndroidWarning(false)}>
+              <Text style={styles.warningClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.warningText}>
+            La discovery automatica potrebbe non funzionare su questa versione di Android.
+          </Text>
+          <TouchableOpacity 
+            style={styles.warningConnectButton}
+            onPress={() => setShowManualConnect(true)}
+          >
+            <Text style={styles.warningConnectButtonText}>📶 Connetti Manualmente</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -944,6 +995,62 @@ const styles = StyleSheet.create({
   openWifiButtonText: {
     color: '#FFFFFF',
     fontSize: Typography.sizes.md,
+    fontWeight: '600',
+  },
+
+  // Old Android warning styles
+  oldAndroidWarning: {
+    backgroundColor: '#2a2a1e',
+    borderWidth: 1,
+    borderColor: '#f5a623',
+    borderRadius: BorderRadius.md,
+    marginHorizontal: Spacing.md,
+    marginVertical: Spacing.sm,
+    padding: Spacing.md,
+  },
+
+  warningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+
+  warningIcon: {
+    fontSize: 18,
+    marginRight: Spacing.sm,
+  },
+
+  warningTitle: {
+    flex: 1,
+    fontSize: Typography.sizes.md,
+    fontWeight: '600',
+    color: '#f5a623',
+  },
+
+  warningClose: {
+    fontSize: 18,
+    color: Colors.textSecondary,
+    padding: Spacing.xs,
+  },
+
+  warningText: {
+    fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
+    lineHeight: 20,
+  },
+
+  warningConnectButton: {
+    backgroundColor: Colors.primary,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+  },
+
+  warningConnectButtonText: {
+    color: '#FFFFFF',
+    fontSize: Typography.sizes.sm,
     fontWeight: '600',
   },
 });
