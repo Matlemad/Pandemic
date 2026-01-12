@@ -387,9 +387,19 @@ export default function JoinScreen() {
       
       router.replace('/room');
     } catch (error: any) {
+      console.error('[Join] Connection failed:', error.message);
+      const errorMsg = error.message || 'Unable to connect to venue host.';
+      const isTimeout = errorMsg.includes('timeout');
+      const isFailed = errorMsg.includes('failed');
+      
+      let helpText = '';
+      if (isTimeout || isFailed) {
+        helpText = `\n\nTroubleshooting:\n• Verify both devices are on the SAME Wi-Fi network\n• Check if firewall is blocking port ${venue.port}\n• Try manual connection with IP: ${venue.host}`;
+      }
+      
       Alert.alert(
         'Venue Connection Failed',
-        error.message || 'Unable to connect to venue host.',
+        `${errorMsg}${helpText}`,
         [{ text: 'OK', onPress: () => setSelectedId(null) }]
       );
     } finally {

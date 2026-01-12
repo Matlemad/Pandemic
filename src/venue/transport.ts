@@ -235,13 +235,26 @@ export class VenueLanTransport {
 
     return new Promise((resolve, reject) => {
       const wsUrl = `ws://${host.host}:${host.port}`;
-      console.log('[VenueLan] Connecting to:', wsUrl);
+      console.log('[VenueLan] ==========================================');
+      console.log('[VenueLan] Attempting WebSocket connection');
+      console.log('[VenueLan] URL:', wsUrl);
+      console.log('[VenueLan] Host:', host.name);
+      console.log('[VenueLan] IP:', host.host, '| Port:', host.port);
+      console.log('[VenueLan] ==========================================');
+      console.log('[VenueLan] If fails, check: AP Isolation on router, Firewall, IP correctness');
+
+      const timeout = setTimeout(() => {
+        console.error('[VenueLan] Connection timeout after 10s to:', wsUrl);
+        reject(new Error(`Connection timeout to ${wsUrl}`));
+        this.disconnect();
+      }, 10000);
 
       this.ws = new WebSocket(wsUrl);
       this.ws.binaryType = 'arraybuffer'; // Required for receiving binary chunks
 
       this.ws.onopen = () => {
-        console.log('[VenueLan] WebSocket connected');
+        clearTimeout(timeout);
+        console.log('[VenueLan] WebSocket connected successfully to:', wsUrl);
         this.connectionState = VenueConnectionState.CONNECTED;
         this.onConnectionStateChange?.(this.connectionState);
         this.reconnectAttempts = 0;
@@ -263,15 +276,24 @@ export class VenueLanTransport {
       };
 
       this.ws.onclose = (event) => {
-        console.log('[VenueLan] WebSocket closed:', event.code);
+        clearTimeout(timeout);
+        console.log('[VenueLan] WebSocket closed:', event.code, 'reason:', event.reason || 'none');
         this.handleDisconnect();
       };
 
       this.ws.onerror = (error) => {
-        console.error('[VenueLan] WebSocket error:', error);
+        clearTimeout(timeout);
+        console.error('[VenueLan] ==========================================');
+        console.error('[VenueLan] WebSocket connection FAILED to:', wsUrl);
+        console.error('[VenueLan] Error:', JSON.stringify(error));
+        console.error('[VenueLan] Possible causes:');
+        console.error('[VenueLan]   1. Devices not on same Wi-Fi network');
+        console.error('[VenueLan]   2. Firewall blocking port', host.port);
+        console.error('[VenueLan]   3. Host not running or wrong IP');
+        console.error('[VenueLan] ==========================================');
         this.connectionState = VenueConnectionState.DISCONNECTED;
         this.onConnectionStateChange?.(this.connectionState);
-        reject(new Error('WebSocket connection failed'));
+        reject(new Error(`WebSocket connection failed to ${wsUrl}`));
       };
 
       this.ws.onmessage = (event) => {

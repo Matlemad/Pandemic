@@ -140,6 +140,19 @@ export class PhoneHostServer {
     }
     
     try {
+      // Log local IPs for debugging
+      try {
+        const localIPs = await LanHostModule.getLocalIPs();
+        console.log('[PhoneHostServer] ===========================================');
+        console.log('[PhoneHostServer] Local IP addresses on this device:');
+        for (const ip of localIPs) {
+          console.log(`[PhoneHostServer]   ${ip.interface}: ${ip.ip}${ip.isIPv6 ? ' (IPv6)' : ''}`);
+        }
+        console.log('[PhoneHostServer] ===========================================');
+      } catch (e) {
+        console.warn('[PhoneHostServer] Could not get local IPs:', e);
+      }
+      
       // Try to stop any existing server first (handles hot reload)
       try {
         await LanHostModule.stopServer();
@@ -151,6 +164,7 @@ export class PhoneHostServer {
       this.isRunning = true;
       this.currentRoom = room;
       console.log('[PhoneHostServer] Server started on port', this.config.port);
+      console.log('[PhoneHostServer] Clients should connect to: ws://<IP>:', this.config.port);
       return true;
     } catch (error: any) {
       // Handle "Address already in use" by stopping and retrying once
