@@ -147,7 +147,7 @@ Open **http://localhost:8787** in your browser to view:
 
 **Room Management:**
 - Create a room name to start accepting connections
-- Toggle room lock to restrict file uploads to host only
+- Toggle room lock to restrict file uploads to room creator only. The creator can always share files, even when joining their own room as a guest.
 - Close room to stop mDNS and disconnect all peers
 - Host files persist across restarts (saved to disk)
 

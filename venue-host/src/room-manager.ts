@@ -53,7 +53,7 @@ export class RoomManager {
   // HOST FILES
   // ============================================================================
   
-  setHostFiles(files: Array<{ id: string; title: string; artist?: string; fileName: string; size: number; mimeType: string; sha256: string; pathOnDisk: string }>): void {
+  setHostFiles(files: Array<{ id: string; title: string; artist?: string; fileName: string; size: number; mimeType: string; sha256: string; pathOnDisk: string }>, broadcastUpdate: boolean = false): void {
     this.hostFiles.clear();
     for (const f of files) {
       this.hostFiles.set(f.id, {
@@ -73,13 +73,24 @@ export class RoomManager {
       } as SharedFileMeta & { pathOnDisk: string });
     }
     console.log(`[RoomManager] Host files updated: ${files.length} files`);
+    
+    // Broadcast updated index to all connected peers
+    if (broadcastUpdate) {
+      const allFiles = this.getRoomFiles(this.defaultRoomId);
+      this.broadcastToRoom(this.defaultRoomId, {
+        type: 'INDEX_FULL',
+        files: allFiles,
+        ts: Date.now(),
+      });
+      console.log(`[RoomManager] Broadcasted file index update to peers`);
+    }
   }
   
   getHostFile(fileId: string): (SharedFileMeta & { pathOnDisk?: string }) | null {
     return this.hostFiles.get(fileId) as any || null;
   }
   
-  updateDefaultRoom(name: string, id?: string): void {
+  updateDefaultRoom(name: string, id?: string, broadcastUpdate: boolean = false): void {
     const room = this.rooms.get(this.defaultRoomId);
     if (room) {
       room.roomName = name;
@@ -87,6 +98,20 @@ export class RoomManager {
         room.roomId = id;
       }
       room.updatedAt = Date.now();
+      
+      // Broadcast room info update to all connected peers
+      if (broadcastUpdate) {
+        this.broadcastToRoom(this.defaultRoomId, {
+          type: 'ROOM_INFO',
+          roomId: room.roomId,
+          roomName: room.roomName,
+          hostId: 'venue-host',
+          features: { relay: true },
+          peerCount: this.getRoomPeerCount(this.defaultRoomId),
+          ts: Date.now(),
+        });
+        console.log(`[RoomManager] Broadcasted room info update: ${name}`);
+      }
     }
   }
   

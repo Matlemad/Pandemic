@@ -23,14 +23,16 @@ class LanHostStateManager {
   private hostFiles: Map<string, LanHostFile> = new Map();
   private peers: Map<string, LanHostPeer> = new Map();
   private files: Map<string, LanHostFile> = new Map(); // All files (host + peers)
+  private hostDeviceId: string | null = null; // Device ID of the host (creator)
   
   // Callbacks
   private onChangeCallbacks: Array<(state: LanHostStateData) => void> = [];
   
   /**
    * Create or update the active room
+   * @param hostDeviceId - The device ID of the host (creator), used to identify host when connecting
    */
-  createOrUpdateRoom(name: string, locked: boolean = false, port: number = 8787): LanHostRoom {
+  createOrUpdateRoom(name: string, locked: boolean = false, port: number = 8787, hostDeviceId?: string): LanHostRoom {
     const now = Date.now();
     
     if (this.room) {
@@ -50,8 +52,42 @@ class LanHostStateManager {
       };
     }
     
+    // Save host device ID
+    if (hostDeviceId) {
+      this.hostDeviceId = hostDeviceId;
+    }
+    
     this.notifyChange();
     return this.room;
+  }
+  
+  /**
+   * Check if a peerId belongs to the host device
+   * PeerIds are formatted as: platform-randomId (e.g., android-abc123)
+   * The host's peerId will start with the same platform prefix
+   */
+  isHostPeer(peerId: string): boolean {
+    if (!this.hostDeviceId) return false;
+    // Host device ID is like "android-abc123" or "ios-xyz789"
+    // PeerId is also like "android-def456"
+    // Match if they share the same platform AND this is the first connection from that device
+    // Actually, simpler: store full peerId when host connects
+    return peerId === this.hostDeviceId;
+  }
+  
+  /**
+   * Set the host's actual peerId when they connect to their own room
+   */
+  setHostPeerId(peerId: string): void {
+    this.hostDeviceId = peerId;
+    console.log('[LanHostState] Host peer ID set:', peerId);
+  }
+  
+  /**
+   * Get the host's device/peer ID
+   */
+  getHostPeerId(): string | null {
+    return this.hostDeviceId;
   }
   
   /**
@@ -79,6 +115,7 @@ class LanHostStateManager {
     this.room = null;
     this.peers.clear();
     this.files.clear();
+    this.hostDeviceId = null;
     // Keep hostFiles for next room
     this.notifyChange();
   }
@@ -248,6 +285,7 @@ class LanHostStateManager {
     this.hostFiles.clear();
     this.peers.clear();
     this.files.clear();
+    this.hostDeviceId = null;
     this.onChangeCallbacks = [];
   }
 }

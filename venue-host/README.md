@@ -141,7 +141,7 @@ Open **http://localhost:8787** in your browser for a real-time dashboard:
 
 **Room Management:**
 - **Create Room**: Set a room name to start accepting connections
-- **Room Lock**: When locked, only the host can upload files (via dashboard)
+- **Room Lock**: When locked, only the room creator can upload files. The creator can always share files, even when joining their own room as a guest.
 - **Close Room**: Stops mDNS advertisement and disconnects all peers
 
 **Host Library:**

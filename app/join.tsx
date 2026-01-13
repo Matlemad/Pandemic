@@ -25,6 +25,7 @@ import { RoomCard } from '../src/components/RoomCard';
 import { VenueRoomCard } from '../src/components/VenueRoomCard';
 import { EmptyState } from '../src/components/EmptyState';
 import { useRoomStore } from '../src/stores/roomStore';
+import { useAppStore } from '../src/stores/appStore';
 import roomService from '../src/services/RoomService';
 import { useVenueDiscovery } from '../src/hooks/useVenueDiscovery';
 import { venueLanTransport } from '../src/venue/transport';
@@ -76,15 +77,25 @@ export default function JoinScreen() {
   // Start scanning on mount - only once!
   useEffect(() => {
     console.log('[Join] Component mounted, starting discovery');
+    console.log('[Join] Current venueHosts count:', venueHosts.length);
+    console.log('[Join] Current discoveredRooms count:', discoveredRooms.length);
+    
+    // Set persistent peerId from deviceId so host can be identified when joining own room
+    const deviceId = useAppStore.getState().deviceId;
+    if (deviceId) {
+      venueLanTransport.setLocalPeerId(deviceId);
+      console.log('[Join] Set persistent peerId:', deviceId);
+    }
+    
     startScan(false); // Don't clear existing rooms
     
     return () => {
-      console.log('[Join] Component unmounting, stopping discovery');
+      console.log('[Join] Component unmounting');
       roomService.stopScanning();
-      // Don't stop venue discovery if we're already connected to a venue
-      if (!venueLanTransport.isConnectedToVenue()) {
-        stopVenueDiscovery();
-      }
+      // DON'T stop venue discovery - let it continue in background
+      // This allows the discovery manager to keep tracking hosts
+      // When the component remounts, it will pick up existing hosts
+      console.log('[Join] P2P scanning stopped, venue discovery continues in background');
     };
   }, []); // Empty deps - only run on mount/unmount
   

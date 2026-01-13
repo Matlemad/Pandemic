@@ -244,6 +244,7 @@ export default function RoomScreen() {
               title: trackTitle,
               artist: file.ownerName === 'Venue Host' ? undefined : file.ownerName,
               durationMs: (file.duration || 0) * 1000,
+              size: file.size,
               mimeType,
               localUri: fileUri,
               source: 'downloaded',

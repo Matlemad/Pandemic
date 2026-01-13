@@ -133,6 +133,12 @@ class VenueRelayManager {
     onError?: (error: string) => void
   ): string {
     const transferId = `dl-${nanoid(10)}`;
+    
+    console.log('[VenueRelay] ===== STARTING DOWNLOAD =====');
+    console.log('[VenueRelay] File ID:', fileId);
+    console.log('[VenueRelay] Transfer ID:', transferId);
+    console.log('[VenueRelay] File size:', fileMeta.size);
+    console.log('[VenueRelay] WebSocket readyState:', ws.readyState);
 
     const transfer: RelayTransfer = {
       transferId,
@@ -148,6 +154,7 @@ class VenueRelayManager {
     };
 
     this.activeTransfers.set(transferId, transfer);
+    console.log('[VenueRelay] Transfer registered. Active:', Array.from(this.activeTransfers.keys()));
 
     // Request the file
     this.sendJson(ws, {
@@ -156,6 +163,8 @@ class VenueRelayManager {
       transferId,
       ts: Date.now(),
     });
+    
+    console.log('[VenueRelay] RELAY_PULL sent');
 
     this.updateProgress(transfer, 'pending');
     
@@ -166,26 +175,42 @@ class VenueRelayManager {
    * Handle incoming binary chunk for a download
    */
   handleBinaryChunk(data: ArrayBuffer): void {
+    console.log('[VenueRelay] handleBinaryChunk called, size:', data.byteLength);
+    
     // Parse header: [transferIdLen (4 bytes)][transferId][chunk data]
     const view = new DataView(data);
-    if (data.byteLength < 4) return;
+    if (data.byteLength < 4) {
+      console.error('[VenueRelay] Chunk too small:', data.byteLength);
+      return;
+    }
 
     const transferIdLen = view.getUint32(0, false);
-    if (data.byteLength < 4 + transferIdLen) return;
+    console.log('[VenueRelay] Transfer ID length:', transferIdLen);
+    
+    if (data.byteLength < 4 + transferIdLen) {
+      console.error('[VenueRelay] Chunk too small for transfer ID');
+      return;
+    }
 
     const transferIdBytes = new Uint8Array(data, 4, transferIdLen);
     const transferId = new TextDecoder().decode(transferIdBytes);
     const chunkData = data.slice(4 + transferIdLen);
+    
+    console.log('[VenueRelay] Transfer ID:', transferId, '| Chunk size:', chunkData.byteLength);
+    console.log('[VenueRelay] Active transfers:', Array.from(this.activeTransfers.keys()));
 
     const transfer = this.activeTransfers.get(transferId);
     if (!transfer || transfer.direction !== 'download') {
       console.warn('[VenueRelay] Chunk for unknown transfer:', transferId);
+      console.warn('[VenueRelay] Known transfers:', Array.from(this.activeTransfers.keys()).join(', '));
       return;
     }
 
     // Store chunk
     transfer.receivedChunks.push(chunkData);
     transfer.bytesTransferred += chunkData.byteLength;
+    
+    console.log('[VenueRelay] Chunk stored. Total received:', transfer.bytesTransferred, '/', transfer.fileMeta.size);
 
     this.updateProgress(transfer, 'in_progress');
   }
@@ -194,11 +219,22 @@ class VenueRelayManager {
    * Handle transfer complete message
    */
   handleTransferComplete(transferId: string, sha256: string): void {
+    console.log('[VenueRelay] ===== TRANSFER COMPLETE =====');
+    console.log('[VenueRelay] Transfer ID:', transferId);
+    
     const transfer = this.activeTransfers.get(transferId);
-    if (!transfer) return;
+    if (!transfer) {
+      console.error('[VenueRelay] Transfer not found:', transferId);
+      console.error('[VenueRelay] Active transfers:', Array.from(this.activeTransfers.keys()));
+      return;
+    }
+    
+    console.log('[VenueRelay] Chunks received:', transfer.receivedChunks.length);
 
     // Combine all chunks
     const totalSize = transfer.receivedChunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+    console.log('[VenueRelay] Total size:', totalSize, 'Expected:', transfer.fileMeta.size);
+    
     const combined = new Uint8Array(totalSize);
     let offset = 0;
     
@@ -210,9 +246,11 @@ class VenueRelayManager {
     // TODO: Verify SHA256
 
     this.updateProgress(transfer, 'complete');
+    console.log('[VenueRelay] Calling onComplete callback...');
     transfer.onComplete?.(combined);
     
     this.activeTransfers.delete(transferId);
+    console.log('[VenueRelay] Transfer removed from active list');
   }
 
   /**

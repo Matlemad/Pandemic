@@ -23,6 +23,7 @@ import { Header } from '../src/components/Header';
 import { Button } from '../src/components/Button';
 import { useAppStore } from '../src/stores/appStore';
 import { lanHostState } from '../src/lanHost/hostState';
+// useAppStore imported above is used for deviceName AND deviceId
 import { phoneHostServer } from '../src/lanHost/PhoneHostServer';
 import '../src/lanHost/wsHandler'; // Initialize WS handler
 import { venueDiscovery, VENUE_SERVICE_TYPE } from '../src/venue/discovery';
@@ -149,8 +150,9 @@ export default function LanHostScreen() {
     setIsStarting(true);
     
     try {
-      // Create/update room in state
-      const room = lanHostState.createOrUpdateRoom(roomName.trim(), locked, 8787);
+      // Create/update room in state, passing deviceId so host can be identified
+      const deviceId = useAppStore.getState().deviceId;
+      const room = lanHostState.createOrUpdateRoom(roomName.trim(), locked, 8787, deviceId);
       
       // Start WebSocket server
       const serverStarted = await phoneHostServer.start(room);

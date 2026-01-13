@@ -70,6 +70,7 @@ export class VenueLanTransport {
   private onDisconnected: (() => void) | null = null;
 
   constructor() {
+    // Generate a random peerId - can be overridden with setLocalPeerId
     this.localPeerId = `${Platform.OS}-${nanoid(8)}`;
   }
 
@@ -87,6 +88,14 @@ export class VenueLanTransport {
 
   getLocalPeerId(): string {
     return this.localPeerId;
+  }
+  
+  /**
+   * Set a persistent peerId (should be called before connecting)
+   * This allows the host to be identified when connecting to their own room
+   */
+  setLocalPeerId(peerId: string): void {
+    this.localPeerId = peerId;
   }
 
   // ============================================================================
@@ -326,8 +335,21 @@ export class VenueLanTransport {
   private handleMessage(event: MessageEvent): void {
     // Check for binary data (file chunks)
     if (event.data instanceof ArrayBuffer) {
-      console.log('[VenueLan] Received binary chunk:', event.data.byteLength, 'bytes');
+      console.log('[VenueLan] ====== BINARY CHUNK RECEIVED ======');
+      console.log('[VenueLan] Size:', event.data.byteLength, 'bytes');
       venueRelay.handleBinaryChunk(event.data);
+      return;
+    }
+    
+    // Some React Native WebSocket implementations use Blob instead of ArrayBuffer
+    if (event.data instanceof Blob) {
+      console.log('[VenueLan] ====== BINARY BLOB RECEIVED ======');
+      console.log('[VenueLan] Blob size:', event.data.size, 'bytes');
+      // Convert Blob to ArrayBuffer
+      event.data.arrayBuffer().then((buffer) => {
+        console.log('[VenueLan] Converted to ArrayBuffer:', buffer.byteLength, 'bytes');
+        venueRelay.handleBinaryChunk(buffer);
+      });
       return;
     }
 

@@ -7,6 +7,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, copyFileSync, statSync } from 'fs';
 import { join, basename, extname } from 'path';
 import { createHash, randomBytes } from 'crypto';
+import { homedir } from 'os';
 import { nanoid } from 'nanoid';
 
 // ============================================================================
@@ -44,10 +45,26 @@ export interface HostState {
 // PATHS
 // ============================================================================
 
-const DATA_DIR = join(process.cwd(), '.data');
+// Use home directory for data storage (works with pkg executables)
+// Falls back to current directory if home is not available
+function getDataDir(): string {
+  try {
+    const home = homedir();
+    if (home) {
+      return join(home, '.pandemic-venue-host');
+    }
+  } catch {
+    // Fallback to current directory
+  }
+  return join(process.cwd(), '.data');
+}
+
+const DATA_DIR = getDataDir();
 const FILES_DIR = join(DATA_DIR, 'files');
 const STATE_FILE = join(DATA_DIR, 'state.json');
 const ADMIN_TOKEN_FILE = join(DATA_DIR, 'admin.json');
+
+console.log(`[HostState] Data directory: ${DATA_DIR}`);
 
 // ============================================================================
 // HOST STATE MANAGER

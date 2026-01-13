@@ -81,20 +81,23 @@ export class PhoneHostServer {
     });
     
     const sub3 = this.nativeEmitter.addListener('lan_host_client_message', (data: any) => {
-      const { clientId, message, isBinary } = data;
+      const { clientId, message } = data;
       try {
-        if (isBinary) {
-          // Binary message (base64 encoded)
-          this.callbacks.onClientMessage?.(clientId, message, true);
-        } else {
-          // Text message - parse as JSON
-          const parsed = typeof message === 'string' ? JSON.parse(message) : message;
-          this.callbacks.onClientMessage?.(clientId, parsed, false);
-        }
+        // Text message - parse as JSON
+        const parsed = typeof message === 'string' ? JSON.parse(message) : message;
+        this.callbacks.onClientMessage?.(clientId, parsed, false);
       } catch (error) {
         console.error('[PhoneHostServer] Failed to parse message:', error);
         this.callbacks.onClientMessage?.(clientId, message, false);
       }
+    });
+    
+    // Binary messages come on a separate event!
+    const sub3b = this.nativeEmitter.addListener('lan_host_client_binary_message', (data: any) => {
+      const { clientId, data: base64Data } = data;
+      console.log('[PhoneHostServer] Binary message received from', clientId, 'size:', base64Data?.length || 0, 'chars');
+      // Binary message (base64 encoded)
+      this.callbacks.onClientMessage?.(clientId, base64Data, true);
     });
     
     const sub4 = this.nativeEmitter.addListener('lan_host_error', (data: any) => {
@@ -114,7 +117,7 @@ export class PhoneHostServer {
       this.callbacks.onStopped?.();
     });
     
-    this.subscriptions = [sub1, sub2, sub3, sub4, sub5, sub6];
+    this.subscriptions = [sub1, sub2, sub3, sub3b, sub4, sub5, sub6];
   }
   
   /**

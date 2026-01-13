@@ -352,11 +352,14 @@ class PhoneHostWSHandler {
       return;
     }
     
-    // Check lock
-    if (room.locked && peerId !== 'phone-host') {
+    // Check lock - host can always share (identified by matching deviceId)
+    const isHost = lanHostState.isHostPeer(peerId);
+    if (room.locked && !isHost) {
       this.sendError(clientId, 'ROOM_LOCKED', 'Room is locked: only host can share files');
       return;
     }
+    
+    console.log('[PhoneHostWS] ShareFiles from', peerId, 'isHost:', isHost);
     
     // Add files
     for (const file of message.files) {
@@ -403,8 +406,9 @@ class PhoneHostWSHandler {
       return;
     }
     
-    // Check lock
-    if (room.locked && peerId !== 'phone-host') {
+    // Check lock - host can always unshare (identified by matching deviceId)
+    const isHost = lanHostState.isHostPeer(peerId);
+    if (room.locked && !isHost) {
       this.sendError(clientId, 'ROOM_LOCKED', 'Room is locked: only host can unshare files');
       return;
     }

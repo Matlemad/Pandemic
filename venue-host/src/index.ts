@@ -43,46 +43,77 @@ const config: VenueHostConfig = {
 let bonjour: InstanceType<typeof Bonjour.default> | null = null;
 let mdnsService: any = null;
 
+let mdnsUpdatePending = false;
+let lastMdnsUpdate = 0;
+const MDNS_UPDATE_THROTTLE_MS = 1000;
+
 function startMdns(room: HostRoom): void {
-  stopMdns();
-  
-  bonjour = new Bonjour.default();
-  
-  mdnsService = bonjour.publish({
-    name: config.serviceName,
-    type: 'audiowallet',
-    port: config.port,
-    txt: {
-      v: '1',
-      room: room.name,
-      lock: room.locked ? '1' : '0',
-      relay: '1',
-    },
-  });
-  
-  mdnsService.on('up', () => {
-    console.log(`[mDNS] Service advertised: ${config.serviceName}`);
-    console.log(`[mDNS] Room: ${room.name} (${room.locked ? 'Locked' : 'Unlocked'})`);
-  });
-  
-  mdnsService.on('error', (error: Error) => {
-    console.error('[mDNS] Error:', error.message);
-  });
+  try {
+    stopMdns();
+    
+    bonjour = new Bonjour.default();
+    
+    mdnsService = bonjour.publish({
+      name: config.serviceName,
+      type: 'audiowallet',
+      port: config.port,
+      txt: {
+        v: '1',
+        room: room.name,
+        lock: room.locked ? '1' : '0',
+        relay: '1',
+      },
+    });
+    
+    mdnsService.on('up', () => {
+      console.log(`[mDNS] Service advertised: ${config.serviceName}`);
+      console.log(`[mDNS] Room: ${room.name} (${room.locked ? 'Locked' : 'Unlocked'})`);
+    });
+    
+    mdnsService.on('error', (error: Error) => {
+      console.error('[mDNS] Error:', error.message);
+    });
+  } catch (err) {
+    console.error('[mDNS] Failed to start:', err);
+  }
 }
 
 function stopMdns(): void {
-  if (mdnsService) {
-    mdnsService.stop();
+  try {
+    if (mdnsService) {
+      mdnsService.stop();
+      mdnsService = null;
+    }
+    if (bonjour) {
+      bonjour.destroy();
+      bonjour = null;
+    }
+  } catch (err) {
+    console.error('[mDNS] Failed to stop:', err);
     mdnsService = null;
-  }
-  if (bonjour) {
-    bonjour.destroy();
     bonjour = null;
   }
 }
 
 function updateMdns(room: HostRoom): void {
-  // Stop and restart with new config
+  // Throttle mDNS updates to prevent rapid restarts
+  const now = Date.now();
+  if (now - lastMdnsUpdate < MDNS_UPDATE_THROTTLE_MS) {
+    if (!mdnsUpdatePending) {
+      mdnsUpdatePending = true;
+      setTimeout(() => {
+        mdnsUpdatePending = false;
+        const currentRoom = hostState.getRoom();
+        if (currentRoom) {
+          lastMdnsUpdate = Date.now();
+          startMdns(currentRoom);
+        }
+      }, MDNS_UPDATE_THROTTLE_MS);
+    }
+    return;
+  }
+  
+  lastMdnsUpdate = now;
   startMdns(room);
 }
 
@@ -164,15 +195,20 @@ async function main(): Promise<void> {
   
   // Listen for host state changes
   hostState.onChange((state) => {
-    if (state.room) {
-      roomManager.updateDefaultRoom(state.room.name, state.room.id);
-      roomManager.setHostFiles(state.hostFiles);
-      updateMdns(state.room);
-    } else {
-      // Room closed - stop mDNS and clear host files
-      stopMdns();
-      roomManager.setHostFiles([]);
-      console.log('[Host] Room closed, mDNS stopped');
+    try {
+      if (state.room) {
+        // Update room and broadcast to connected peers
+        roomManager.updateDefaultRoom(state.room.name, state.room.id, true);
+        roomManager.setHostFiles(state.hostFiles || [], true);
+        updateMdns(state.room);
+      } else {
+        // Room closed - stop mDNS and clear host files
+        stopMdns();
+        roomManager.setHostFiles([], true);
+        console.log('[Host] Room closed, mDNS stopped');
+      }
+    } catch (err) {
+      console.error('[Host] Error in onChange handler:', err);
     }
   });
   
@@ -318,6 +354,17 @@ async function main(): Promise<void> {
     }
   }, 30000);
 }
+
+// Global error handlers to prevent crashes
+process.on('uncaughtException', (error) => {
+  console.error('[CRITICAL] Uncaught exception:', error);
+  // Don't exit - try to keep running
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[CRITICAL] Unhandled rejection at:', promise, 'reason:', reason);
+  // Don't exit - try to keep running
+});
 
 // Run
 main().catch((error) => {

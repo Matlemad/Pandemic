@@ -303,14 +303,24 @@ export async function handleAdminRequest(req: IncomingMessage, res: ServerRespon
 
     if (typeof route.path === 'string') {
       if (route.path === url) {
-        await route.handler(req, res);
+        try {
+          await route.handler(req, res);
+        } catch (err: any) {
+          console.error('[AdminAPI] Route handler error:', err);
+          sendError(res, err.message || 'Internal server error', 500);
+        }
         return true;
       }
     } else {
       const match = url.match(route.path);
       if (match) {
         const params = { id: match[1] };
-        await route.handler(req, res, params);
+        try {
+          await route.handler(req, res, params);
+        } catch (err: any) {
+          console.error('[AdminAPI] Route handler error:', err);
+          sendError(res, err.message || 'Internal server error', 500);
+        }
         return true;
       }
     }

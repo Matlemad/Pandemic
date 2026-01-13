@@ -4,6 +4,7 @@
 
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getInfoAsync } from 'expo-file-system';
 import { generateId } from '../utils/id';
 
 // ============================================================================
@@ -79,10 +80,34 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     try {
       const json = await AsyncStorage.getItem(STORAGE_KEY);
       if (json) {
-        const tracks = JSON.parse(json) as LibraryTrack[];
+        let tracks = JSON.parse(json) as LibraryTrack[];
         // Sort by orderIndex
         tracks.sort((a, b) => a.orderIndex - b.orderIndex);
+        
+        // Fix missing sizes by reading from filesystem
+        let needsSave = false;
+        for (const track of tracks) {
+          if (!track.size || track.size === 0) {
+            try {
+              const info = await getInfoAsync(track.localUri);
+              if (info.exists && 'size' in info) {
+                track.size = info.size;
+                needsSave = true;
+                console.log(`[LibraryStore] Fixed size for ${track.title}: ${info.size} bytes`);
+              }
+            } catch {
+              // Ignore - file might not exist
+            }
+          }
+        }
+        
         set({ tracks, isLoaded: true });
+        
+        // Save if we fixed any sizes
+        if (needsSave) {
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(tracks));
+          console.log('[LibraryStore] Saved fixed sizes');
+        }
       } else {
         set({ tracks: [], isLoaded: true });
       }

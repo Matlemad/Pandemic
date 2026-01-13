@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
   // List
   listContent: {
     padding: Spacing.md,
-    paddingBottom: 120, // Space for player bar
+    paddingBottom: 150, // Space for player bar + safe area
   },
 
   // Track Item
@@ -816,13 +816,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 72,
+    minHeight: 72,
     backgroundColor: Colors.surface,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
     overflow: 'hidden',
   },
 

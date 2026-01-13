@@ -27,40 +27,54 @@ export function useVenueDiscovery(): UseVenueDiscoveryResult {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Setup callbacks
-    venueDiscovery.setOnHostFound((host) => {
-      setVenueHosts((prev) => {
-        const existing = prev.find(
-          (h) => h.host === host.host && h.port === host.port
-        );
-        if (existing) {
-          return prev.map((h) =>
-            h.host === host.host && h.port === host.port ? host : h
+    // Setup callbacks - these need to be set every time the hook mounts
+    // because they reference the current state setters
+    const setupCallbacks = () => {
+      venueDiscovery.setOnHostFound((host) => {
+        setVenueHosts((prev) => {
+          const existing = prev.find(
+            (h) => h.host === host.host && h.port === host.port
           );
-        }
-        return [...prev, host];
+          if (existing) {
+            return prev.map((h) =>
+              h.host === host.host && h.port === host.port ? host : h
+            );
+          }
+          return [...prev, host];
+        });
       });
-    });
 
-    venueDiscovery.setOnHostLost((host) => {
-      console.log('[VenueDiscovery] Host lost:', host.name);
-      setVenueHosts((prev) => {
-        // Remove by host:port if available, otherwise by name
-        if (host.host && host.port) {
-          return prev.filter((h) => !(h.host === host.host && h.port === host.port));
-        } else if (host.name) {
-          return prev.filter((h) => h.name !== host.name);
-        }
-        return prev;
+      venueDiscovery.setOnHostLost((host) => {
+        console.log('[VenueDiscovery] Host lost:', host.name);
+        setVenueHosts((prev) => {
+          // Remove by host:port if available, otherwise by name
+          if (host.host && host.port) {
+            return prev.filter((h) => !(h.host === host.host && h.port === host.port));
+          } else if (host.name) {
+            return prev.filter((h) => h.name !== host.name);
+          }
+          return prev;
+        });
       });
-    });
 
-    venueDiscovery.setOnError((errorMsg) => {
-      setError(errorMsg);
-    });
+      venueDiscovery.setOnError((errorMsg) => {
+        setError(errorMsg);
+      });
+    };
+    
+    setupCallbacks();
+    
+    // Load any already-discovered hosts from the manager
+    const existingHosts = venueDiscovery.getDiscoveredHosts();
+    if (existingHosts.length > 0) {
+      console.log('[VenueDiscovery] Loading existing hosts:', existingHosts.length);
+      setVenueHosts(existingHosts);
+    }
 
+    // Don't clear callbacks on unmount - they'll be overwritten on next mount
+    // This prevents losing events between navigation
     return () => {
-      venueDiscovery.clearCallbacks();
+      // No cleanup needed - callbacks will be reset on next mount
     };
   }, []);
 
