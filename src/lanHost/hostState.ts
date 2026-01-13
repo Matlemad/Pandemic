@@ -55,6 +55,7 @@ class LanHostStateManager {
     // Save host device ID
     if (hostDeviceId) {
       this.hostDeviceId = hostDeviceId;
+      console.log('[LanHostState] Saved hostDeviceId:', hostDeviceId);
     }
     
     this.notifyChange();
@@ -63,16 +64,16 @@ class LanHostStateManager {
   
   /**
    * Check if a peerId belongs to the host device
-   * PeerIds are formatted as: platform-randomId (e.g., android-abc123)
-   * The host's peerId will start with the same platform prefix
+   * Compares the peerId with the saved hostDeviceId
    */
   isHostPeer(peerId: string): boolean {
-    if (!this.hostDeviceId) return false;
-    // Host device ID is like "android-abc123" or "ios-xyz789"
-    // PeerId is also like "android-def456"
-    // Match if they share the same platform AND this is the first connection from that device
-    // Actually, simpler: store full peerId when host connects
-    return peerId === this.hostDeviceId;
+    if (!this.hostDeviceId) {
+      console.log('[LanHostState] isHostPeer: no hostDeviceId saved!');
+      return false;
+    }
+    const match = peerId === this.hostDeviceId;
+    console.log('[LanHostState] isHostPeer check:', { peerId, hostDeviceId: this.hostDeviceId, match });
+    return match;
   }
   
   /**

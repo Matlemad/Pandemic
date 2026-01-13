@@ -353,13 +353,17 @@ class PhoneHostWSHandler {
     }
     
     // Check lock - host can always share (identified by matching deviceId)
+    const hostDeviceId = lanHostState.getHostPeerId();
     const isHost = lanHostState.isHostPeer(peerId);
+    console.log('[PhoneHostWS] ShareFiles check - peerId:', peerId, 'hostDeviceId:', hostDeviceId, 'isHost:', isHost, 'locked:', room.locked);
+    
     if (room.locked && !isHost) {
+      console.log('[PhoneHostWS] BLOCKED: Room is locked and peer is not host');
       this.sendError(clientId, 'ROOM_LOCKED', 'Room is locked: only host can share files');
       return;
     }
     
-    console.log('[PhoneHostWS] ShareFiles from', peerId, 'isHost:', isHost);
+    console.log('[PhoneHostWS] ShareFiles ALLOWED from', peerId);
     
     // Add files
     for (const file of message.files) {

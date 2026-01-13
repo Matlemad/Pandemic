@@ -25,6 +25,7 @@ import roomService from '../src/services/RoomService';
 import { venueLanTransport } from '../src/venue/transport';
 import { venueRelay } from '../src/venue/relay';
 import { useLibraryStore } from '../src/stores/libraryStore';
+import { lanHostState } from '../src/lanHost/hostState';
 import { RoomRole, SharedFileMetadata, TransferDirection, TransportMode, AudioFormat } from '../src/types';
 import { documentDirectory, getInfoAsync, makeDirectoryAsync, writeAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { Colors, Spacing, BorderRadius, Typography } from '../src/constants/theme';
@@ -133,8 +134,13 @@ export default function RoomScreen() {
   // In venue mode (WiFi LAN), everyone can share files unless room is locked
   const isVenueMode = isVenueModeCheck;
   const isRoomLocked = room.locked === true;
-  // Host can always share; others can only share if room is not locked
-  const canShare = isHost || (isVenueMode && !isRoomLocked);
+  // Check if this device created the phone-hosted room (can bypass lock)
+  const isRoomCreator = lanHostState.isHostPeer(deviceId);
+  // Host can always share; room creator can always share; others can only share if room is not locked
+  const canShare = isHost || isRoomCreator || (isVenueMode && !isRoomLocked);
+  
+  // Debug logging
+  console.log('[Room] canShare check:', { isHost, isRoomCreator, isVenueMode, isRoomLocked, deviceId, canShare });
   const myFiles = sharedFiles.filter((f) => f.ownerId === deviceId);
   const otherFiles = sharedFiles.filter((f) => f.ownerId !== deviceId);
   const activeTransfers = transfers.filter(

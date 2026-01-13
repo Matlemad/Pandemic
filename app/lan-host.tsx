@@ -152,6 +152,7 @@ export default function LanHostScreen() {
     try {
       // Create/update room in state, passing deviceId so host can be identified
       const deviceId = useAppStore.getState().deviceId;
+      console.log('[LanHost] Creating room with hostDeviceId:', deviceId);
       const room = lanHostState.createOrUpdateRoom(roomName.trim(), locked, 8787, deviceId);
       
       // Start WebSocket server
