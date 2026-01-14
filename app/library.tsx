@@ -54,6 +54,7 @@ export default function LibraryScreen() {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isImporting, setIsImporting] = useState(false);
+  const [isPlayerDismissed, setIsPlayerDismissed] = useState(false);
 
   // Progress bar animation
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -144,6 +145,7 @@ export default function LibraryScreen() {
       return;
     }
 
+    setIsPlayerDismissed(false); // Show player when playing
     await audioPlaybackService.playTrack(trackId);
   };
 
@@ -276,6 +278,7 @@ export default function LibraryScreen() {
               if (isPlaying) {
                 audioPlaybackService.pause();
               } else {
+                setIsPlayerDismissed(false); // Show player when playing
                 audioPlaybackService.playTrack(item.id);
               }
             }}
@@ -365,7 +368,7 @@ export default function LibraryScreen() {
         </TouchableOpacity>
       );
     },
-    [playback, selectedIds, room, mySharedFiles, tracks.length]
+    [playback, selectedIds, room, mySharedFiles, tracks.length, setIsPlayerDismissed]
   );
 
   // ============================================================================
@@ -468,8 +471,8 @@ export default function LibraryScreen() {
         </View>
       )}
 
-      {/* Bottom Player Bar - always visible when playing */}
-      {currentTrack && (
+      {/* Bottom Player Bar - visible when playing and not dismissed */}
+      {currentTrack && !isPlayerDismissed && (
         <View style={[styles.playerBar, { paddingBottom: insets.bottom }]}>
           {/* Progress */}
           <Animated.View
@@ -519,6 +522,14 @@ export default function LibraryScreen() {
               <Text style={styles.playerButtonText}>⏭</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Dismiss Button */}
+          <TouchableOpacity
+            style={styles.dismissButton}
+            onPress={() => setIsPlayerDismissed(true)}
+          >
+            <Text style={styles.dismissButtonText}>✕</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -866,6 +877,7 @@ const styles = StyleSheet.create({
 
   playerButtonText: {
     fontSize: 20,
+    color: Colors.textPrimary,
   },
 
   playPauseButton: {
@@ -878,6 +890,20 @@ const styles = StyleSheet.create({
 
   playPauseText: {
     fontSize: 22,
+  },
+
+  // Dismiss Button
+  dismissButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: Spacing.xs,
+  },
+
+  dismissButtonText: {
+    fontSize: 18,
+    color: Colors.textMuted,
   },
 
   // Loading overlay
