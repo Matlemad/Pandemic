@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Header } from '../src/components/Header';
+import { Icon } from '../src/components';
 import { useAppStore } from '../src/stores/appStore';
 import { Colors, Spacing, BorderRadius, Typography } from '../src/constants/theme';
 import { runBleDiagnostics, formatDiagnostics } from '../src/utils/bleDiagnostics';
@@ -106,7 +107,7 @@ export default function SettingsScreen() {
                 )}
               </View>
               {!editingName && (
-                <Text style={styles.settingArrow}>✏️</Text>
+                <Text style={styles.settingArrow}>Edit</Text>
               )}
             </TouchableOpacity>
 
@@ -229,16 +230,23 @@ export default function SettingsScreen() {
                   Check Bluetooth and permissions status
                 </Text>
               </View>
-              <Text style={styles.settingArrow}>
-                {diagnosticsRunning ? '⏳' : '🔍'}
-              </Text>
+              <View style={styles.settingArrowIcon}>
+                {diagnosticsRunning ? (
+                  <Text style={styles.settingArrow}>...</Text>
+                ) : (
+                  <Icon name="lens" size={18} color={Colors.textMuted} />
+                )}
+              </View>
             </TouchableOpacity>
 
             <View style={styles.divider} />
 
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>⚠️ BLE Note</Text>
+                <View style={styles.settingLabelRow}>
+                  <Icon name="warning" size={16} color={Colors.accent} />
+                  <Text style={styles.settingLabel}>BLE Note</Text>
+                </View>
                 <Text style={styles.settingDescription}>
                   BLE advertising is not fully implemented yet. Rooms may not be immediately visible.
                 </Text>
@@ -287,7 +295,7 @@ export default function SettingsScreen() {
                   Delete all settings and library
                 </Text>
               </View>
-              <Text style={styles.settingArrow}>🗑️</Text>
+              <Icon name="close" size={18} color={Colors.error} />
             </TouchableOpacity>
           </View>
         </View>
@@ -383,8 +391,20 @@ const styles = StyleSheet.create({
   },
 
   settingArrow: {
-    fontSize: 18,
+    fontSize: 14,
     color: Colors.textMuted,
+  },
+
+  settingArrowIcon: {
+    width: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  settingLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
 
   dangerText: {

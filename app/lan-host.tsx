@@ -21,6 +21,7 @@ import { router } from 'expo-router';
 import * as Network from 'expo-network';
 import { Header } from '../src/components/Header';
 import { Button } from '../src/components/Button';
+import { Icon } from '../src/components';
 import { useAppStore } from '../src/stores/appStore';
 import { lanHostState } from '../src/lanHost/hostState';
 // useAppStore imported above is used for deviceName AND deviceId
@@ -344,7 +345,10 @@ export default function LanHostScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Instructions */}
           <View style={styles.instructionsCard}>
-            <Text style={styles.instructionsTitle}>📡 How It Works</Text>
+            <View style={styles.instructionsTitleRow}>
+              <Icon name="radar" size={18} color={Colors.textPrimary} />
+              <Text style={styles.instructionsTitle}>How It Works</Text>
+            </View>
             <Text style={styles.instructionsText}>
               • Enable your device hotspot OR connect to a Wi-Fi network{'\n'}
               • Other devices must be on the same network{'\n'}
@@ -455,9 +459,12 @@ export default function LanHostScreen() {
               
               <View style={styles.statusRow}>
                 <Text style={styles.statusLabel}>mDNS:</Text>
-                <Text style={styles.statusValue}>
-                  {isAdvertising ? '✅ Published' : '❌ Not published'}
-                </Text>
+                <View style={styles.statusIconRow}>
+                  <Icon name={isAdvertising ? 'check' : 'failed'} size={14} color={isAdvertising ? Colors.success : Colors.error} />
+                  <Text style={styles.statusValue}>
+                    {isAdvertising ? 'Published' : 'Not published'}
+                  </Text>
+                </View>
               </View>
               
               <View style={styles.statusRow}>
@@ -473,9 +480,12 @@ export default function LanHostScreen() {
               {isHotspotMode && (
                 <View style={styles.statusRow}>
                   <Text style={styles.statusLabel}>BLE:</Text>
-                  <Text style={styles.statusValue}>
-                    {isBleAdvertising ? '✅ Active' : '❌ Not active'}
-                  </Text>
+                  <View style={styles.statusIconRow}>
+                    <Icon name={isBleAdvertising ? 'check' : 'failed'} size={14} color={isBleAdvertising ? Colors.success : Colors.error} />
+                    <Text style={styles.statusValue}>
+                      {isBleAdvertising ? 'Active' : 'Not active'}
+                    </Text>
+                  </View>
                 </View>
               )}
               
@@ -491,13 +501,20 @@ export default function LanHostScreen() {
           {/* Network Info */}
           <View style={styles.networkCard}>
             <Text style={styles.networkLabel}>Network Status:</Text>
-            <Text style={[styles.networkValue, { color: wifiAvailable ? Colors.success : Colors.warning }]}>
-              {localIp 
-                ? `✅ Connected (${localIp})`
-                : wifiAvailable
-                  ? '📡 Hotspot/Network detected'
-                  : '⚠️ No connection'}
-            </Text>
+            <View style={styles.networkStatusRow}>
+              <Icon 
+                name={localIp ? 'check' : wifiAvailable ? 'radar' : 'warning'} 
+                size={14} 
+                color={wifiAvailable ? Colors.success : Colors.warning} 
+              />
+              <Text style={[styles.networkValue, { color: wifiAvailable ? Colors.success : Colors.warning }]}>
+                {localIp 
+                  ? `Connected (${localIp})`
+                  : wifiAvailable
+                    ? 'Hotspot/Network detected'
+                    : 'No connection'}
+              </Text>
+            </View>
           </View>
           
           {/* Actions */}
@@ -547,11 +564,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  instructionsTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
   instructionsTitle: {
     fontSize: Typography.sizes.md,
     fontWeight: '600',
     color: Colors.textPrimary,
-    marginBottom: Spacing.xs,
   },
   instructionsText: {
     fontSize: Typography.sizes.sm,
@@ -629,6 +651,11 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
+  statusIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
   networkCard: {
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius.md,
@@ -647,6 +674,11 @@ const styles = StyleSheet.create({
   networkValue: {
     fontSize: Typography.sizes.sm,
     fontWeight: '500',
+  },
+  networkStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
   hotspotCard: {
     backgroundColor: Colors.surface,

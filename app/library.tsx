@@ -26,6 +26,7 @@ import { Paths, File, Directory } from 'expo-file-system/next';
 import { Header } from '../src/components/Header';
 import { EmptyState } from '../src/components/EmptyState';
 import { Button } from '../src/components/Button';
+import { Icon } from '../src/components';
 import { useLibraryStore, LibraryTrack } from '../src/stores/libraryStore';
 import { audioPlaybackService } from '../src/services/AudioPlaybackService';
 import { roomService } from '../src/services';
@@ -283,7 +284,7 @@ export default function LibraryScreen() {
               }
             }}
           >
-            <Text style={styles.playButtonText}>{isPlaying ? '⏸' : '▶'}</Text>
+            <Icon name={isPlaying ? 'pause' : 'play'} size={16} color={isPlaying ? Colors.textInverse : Colors.textPrimary} />
           </TouchableOpacity>
 
           {/* Reorder Buttons - always visible when multiple tracks */}
@@ -342,9 +343,7 @@ export default function LibraryScreen() {
               </Text>
               <Text style={styles.metaDot}>•</Text>
               <View style={[styles.sourceBadge, item.source === 'downloaded' && styles.sourceBadgeDownloaded]}>
-                <Text style={styles.sourceBadgeText}>
-                  {item.source === 'imported' ? '📂' : '📥'}
-                </Text>
+                <Icon name={item.source === 'imported' ? 'add' : 'download'} size={10} color={Colors.textMuted} />
               </View>
             </View>
           </View>
@@ -352,7 +351,7 @@ export default function LibraryScreen() {
           {/* Shared indicator */}
           {isShared && (
             <View style={styles.sharedIndicator}>
-              <Text style={styles.sharedIcon}>📤</Text>
+              <Icon name="upload" size={16} color={Colors.secondary} />
             </View>
           )}
 
@@ -362,7 +361,7 @@ export default function LibraryScreen() {
               style={styles.deleteButton}
               onPress={() => handleDeleteTrack(item)}
             >
-              <Text style={styles.deleteButtonText}>🗑</Text>
+              <Icon name="close" size={16} color={Colors.textMuted} />
             </TouchableOpacity>
           )}
         </TouchableOpacity>
@@ -403,16 +402,17 @@ export default function LibraryScreen() {
         subtitle={`${tracks.length} track${tracks.length === 1 ? '' : 's'}`}
         showBack
         onBack={() => router.back()}
-        rightIcon={isImporting ? undefined : '➕'}
+        rightIcon={isImporting ? undefined : <Icon name="add" size={24} color={Colors.textPrimary} />}
         onRightPress={isImporting ? undefined : handleImportFile}
       />
 
       {/* Room Selection Banner */}
       {room && (
         <View style={styles.selectionBanner}>
-          <Text style={styles.selectionBannerText}>
-            📤 Select tracks to share in the room
-          </Text>
+          <View style={styles.selectionBannerRow}>
+            <Icon name="upload" size={14} color={Colors.primary} />
+            <Text style={styles.selectionBannerText}>Select tracks to share in the room</Text>
+          </View>
         </View>
       )}
 
@@ -450,7 +450,7 @@ export default function LibraryScreen() {
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <EmptyState
-            icon="🎵"
+            icon={<Icon name="musical-notes" size={48} color={Colors.textMuted} />}
             title="Library empty"
             description="Import audio files to get started"
             actionTitle="Import files"
@@ -503,23 +503,21 @@ export default function LibraryScreen() {
               style={styles.playerButton}
               onPress={handlePrevious}
             >
-              <Text style={styles.playerButtonText}>⏮</Text>
+              <Icon name="back" size={20} color={Colors.textPrimary} />
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.playerButton, styles.playPauseButton]}
               onPress={handleTogglePlayPause}
             >
-              <Text style={styles.playPauseText}>
-                {playback.isPlaying ? '⏸' : '▶️'}
-              </Text>
+              <Icon name={playback.isPlaying ? 'pause' : 'play'} size={22} color={Colors.textInverse} />
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.playerButton}
               onPress={handleNext}
             >
-              <Text style={styles.playerButtonText}>⏭</Text>
+              <Icon name="forward" size={20} color={Colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -528,7 +526,7 @@ export default function LibraryScreen() {
             style={styles.dismissButton}
             onPress={() => setIsPlayerDismissed(true)}
           >
-            <Text style={styles.dismissButtonText}>✕</Text>
+            <Icon name="close" size={18} color={Colors.textMuted} />
           </TouchableOpacity>
         </View>
       )}
@@ -573,6 +571,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.primary + '40',
+  },
+
+  selectionBannerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
   },
 
   selectionBannerText: {

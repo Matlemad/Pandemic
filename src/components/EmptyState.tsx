@@ -2,13 +2,13 @@
  * Empty State Component
  */
 
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors, Spacing, Typography } from '../constants/theme';
 import { Button } from './Button';
 
 interface EmptyStateProps {
-  icon: string;
+  icon: string | ReactNode;
   title: string;
   description: string;
   actionTitle?: string;
@@ -24,7 +24,9 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <View style={styles.container}>
-      <Text style={styles.icon}>{icon}</Text>
+      <View style={styles.iconWrap}>
+        {typeof icon === 'string' ? <Text style={styles.icon}>{icon}</Text> : icon}
+      </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.description}>{description}</Text>
       {actionTitle && onAction && (
@@ -48,9 +50,14 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
   },
 
+  iconWrap: {
+    marginBottom: Spacing.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   icon: {
     fontSize: 64,
-    marginBottom: Spacing.lg,
   },
 
   title: {

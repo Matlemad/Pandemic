@@ -18,6 +18,7 @@ import { FileCard } from '../src/components/FileCard';
 import { TransferItem } from '../src/components/TransferItem';
 import { EmptyState } from '../src/components/EmptyState';
 import { Button } from '../src/components/Button';
+import { Icon } from '../src/components';
 import { useRoomStore } from '../src/stores/roomStore';
 import { useTransferStore } from '../src/stores/transferStore';
 import { useAppStore } from '../src/stores/appStore';
@@ -303,25 +304,33 @@ export default function RoomScreen() {
         style={[styles.tab, activeTab === 'files' && styles.activeTab]}
         onPress={() => setActiveTab('files')}
       >
-        <Text style={[styles.tabText, activeTab === 'files' && styles.activeTabText]}>
-          🎵 File ({sharedFiles.length})
-        </Text>
+        <View style={styles.tabRow}>
+          <Icon name="musical-notes" size={16} color={activeTab === 'files' ? Colors.primary : Colors.textSecondary} />
+          <Text style={[styles.tabText, activeTab === 'files' && styles.activeTabText]}>
+            File ({sharedFiles.length})
+          </Text>
+        </View>
       </TouchableOpacity>
       <TouchableOpacity
         style={[styles.tab, activeTab === 'transfers' && styles.activeTab]}
         onPress={() => setActiveTab('transfers')}
       >
-        <Text style={[styles.tabText, activeTab === 'transfers' && styles.activeTabText]}>
-          📥 Transfers ({activeTransfers.length})
-        </Text>
+        <View style={styles.tabRow}>
+          <Icon name="download" size={16} color={activeTab === 'transfers' ? Colors.primary : Colors.textSecondary} />
+          <Text style={[styles.tabText, activeTab === 'transfers' && styles.activeTabText]}>
+            Transfers ({activeTransfers.length})
+          </Text>
+        </View>
       </TouchableOpacity>
       <TouchableOpacity
         style={[styles.tab, activeTab === 'peers' && styles.activeTab]}
         onPress={() => setActiveTab('peers')}
       >
-        <Text style={[styles.tabText, activeTab === 'peers' && styles.activeTabText]}>
-          👥 Peers ({peers.length})
-        </Text>
+        <View style={styles.tabRow}>
+          <Text style={[styles.tabText, activeTab === 'peers' && styles.activeTabText]}>
+            👥 Peers ({peers.length})
+          </Text>
+        </View>
       </TouchableOpacity>
     </View>
   );
@@ -364,7 +373,7 @@ export default function RoomScreen() {
       }}
       ListEmptyComponent={
         <EmptyState
-          icon="📂"
+          icon={<Icon name="musical-notes" size={48} color={Colors.textMuted} />}
           title="No files available"
           description={
             canShare
@@ -393,7 +402,7 @@ export default function RoomScreen() {
       )}
       ListEmptyComponent={
         <EmptyState
-          icon="📦"
+          icon={<Icon name="download" size={48} color={Colors.textMuted} />}
           title="No transfers"
           description="Active and completed transfers will appear here"
         />
@@ -439,27 +448,24 @@ export default function RoomScreen() {
     <SafeAreaView style={styles.container}>
       <Header
         title={room.roomName}
-        subtitle={isVenueMode ? '📶 Venue Room' : isHost ? '👑 Host' : `Da: ${room.hostName}`}
-        rightIcon="🚪"
+        subtitle={isVenueMode ? 'Venue Room' : isHost ? 'Host' : `Da: ${room.hostName}`}
+        rightIcon={<Icon name="close" size={20} color={Colors.textPrimary} />}
         onRightPress={handleLeaveRoom}
       />
 
       {/* Room Status Bar */}
       <View style={styles.statusBar}>
         <View style={styles.statusItem}>
-          <Text style={styles.statusIcon}>👥</Text>
-          <Text style={styles.statusText}>{peers.length + 1} in room</Text>
+          <Text style={styles.statusText}>👥 {peers.length + 1} in room</Text>
         </View>
         <View style={styles.statusDivider} />
         <View style={styles.statusItem}>
-          <Text style={styles.statusIcon}>📁</Text>
+          <Icon name="musical-notes" size={14} color={Colors.textSecondary} />
           <Text style={styles.statusText}>{sharedFiles.length} file{sharedFiles.length === 1 ? '' : 's'}</Text>
         </View>
         <View style={styles.statusDivider} />
         <View style={styles.statusItem}>
-          <Text style={styles.statusIcon}>
-            {room.wifiAvailable ? '📶' : '📡'}
-          </Text>
+          <Icon name={room.wifiAvailable ? 'wifi' : 'radar'} size={14} color={Colors.textSecondary} />
           <Text style={styles.statusText}>
             {room.wifiAvailable ? 'Wi-Fi' : 'BLE'}
           </Text>
@@ -470,7 +476,7 @@ export default function RoomScreen() {
       {renderTabs()}
 
       {/* Tab Content */}
-      <View style={styles.tabContent}>
+      <View style={styles.tabContentArea}>
         {activeTab === 'files' && renderFilesTab()}
         {activeTab === 'transfers' && renderTransfersTab()}
         {activeTab === 'peers' && renderPeersTab()}
@@ -483,7 +489,7 @@ export default function RoomScreen() {
           onPress={handleShareFiles}
           activeOpacity={0.8}
         >
-          <Text style={styles.fabIcon}>➕</Text>
+          <Icon name="add" size={28} color={Colors.textInverse} />
         </TouchableOpacity>
       )}
     </SafeAreaView>
@@ -561,7 +567,13 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
 
-  tabContent: {
+  tabRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+
+  tabContentArea: {
     flex: 1,
   },
 

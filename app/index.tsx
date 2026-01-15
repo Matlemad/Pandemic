@@ -20,6 +20,7 @@ import { useAppStore } from '../src/stores/appStore';
 import { useRoomStore } from '../src/stores/roomStore';
 import { useTransferStore } from '../src/stores/transferStore';
 import { bleService } from '../src/services/BleService';
+import { Icon } from '../src/components';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../src/constants/theme';
 
 const { width } = Dimensions.get('window');
@@ -139,7 +140,9 @@ export default function HomeScreen() {
         {/* Network Status */}
         <View style={styles.statusCard}>
           <View style={styles.statusRow}>
-            <Text style={styles.statusIcon}>📱</Text>
+            <View style={styles.statusIconWrap}>
+              <Icon name="mobile" size={24} color={Colors.textPrimary} />
+            </View>
             <View style={styles.statusInfo}>
               <Text style={styles.statusLabel}>Device</Text>
               <Text style={styles.statusValue}>{deviceName}</Text>
@@ -147,9 +150,9 @@ export default function HomeScreen() {
           </View>
           <View style={styles.divider} />
           <View style={styles.statusRow}>
-            <Text style={styles.statusIcon}>
-              {networkCapabilities.wifiAvailable ? '📶' : '📵'}
-            </Text>
+            <View style={styles.statusIconWrap}>
+              <Icon name="wifi" size={24} color={networkCapabilities.wifiAvailable ? Colors.secondary : Colors.textMuted} />
+            </View>
             <View style={styles.statusInfo}>
               <Text style={styles.statusLabel}>Local Network</Text>
               <Text style={styles.statusValue}>
@@ -171,9 +174,13 @@ export default function HomeScreen() {
               </>
             ) : (
               <>
-                <Text style={styles.statusIcon}>
-                  {bleReady && locationReady ? '✅' : '⚠️'}
-                </Text>
+                <View style={styles.statusIconWrap}>
+                  <Icon 
+                    name={bleReady && locationReady ? 'check' : 'warning'} 
+                    size={24} 
+                    color={bleReady && locationReady ? Colors.secondary : Colors.accent} 
+                  />
+                </View>
                 <View style={styles.statusInfo}>
                   <Text style={styles.statusLabel}>Bluetooth & Location</Text>
                   <Text style={[
@@ -210,7 +217,9 @@ export default function HomeScreen() {
             activeOpacity={0.85}
           >
             <View style={[styles.actionGlow, styles.lanGlow]} />
-            <Text style={styles.actionIcon}>📡</Text>
+            <View style={styles.actionIconWrap}>
+              <Icon name="radar" size={40} color={Colors.textPrimary} />
+            </View>
             <Text style={styles.actionTitle}>Create Room</Text>
             <Text style={styles.actionDescription}>
               Host a Wi-Fi/hotspot room (cross-platform)
@@ -223,7 +232,9 @@ export default function HomeScreen() {
             activeOpacity={0.85}
           >
             <View style={[styles.actionGlow, styles.joinGlow]} />
-            <Text style={styles.actionIcon}>🔍</Text>
+            <View style={styles.actionIconWrap}>
+              <Icon name="lens" size={40} color={Colors.textPrimary} />
+            </View>
             <Text style={styles.actionTitle}>Find Rooms</Text>
             <Text style={styles.actionDescription}>
               Search for active rooms nearby
@@ -237,7 +248,9 @@ export default function HomeScreen() {
             style={styles.quickLink}
             onPress={() => router.push('/library')}
           >
-            <Text style={styles.quickLinkIcon}>🎵</Text>
+            <View style={styles.quickLinkIconWrap}>
+              <Icon name="musical-notes" size={20} color={Colors.textPrimary} />
+            </View>
             <Text style={styles.quickLinkText}>My Library</Text>
             <Text style={styles.quickLinkArrow}>→</Text>
           </TouchableOpacity>
@@ -247,7 +260,9 @@ export default function HomeScreen() {
               style={[styles.quickLink, styles.transfersLink]}
               onPress={() => router.push('/room')}
             >
-              <Text style={styles.quickLinkIcon}>📥</Text>
+              <View style={styles.quickLinkIconWrap}>
+                <Icon name="download" size={20} color={Colors.textPrimary} />
+              </View>
               <Text style={styles.quickLinkText}>
                 {activeTransferCount} active transfer{activeTransferCount === 1 ? '' : 's'}
               </Text>
@@ -259,7 +274,9 @@ export default function HomeScreen() {
             style={styles.quickLink}
             onPress={() => router.push('/settings')}
           >
-            <Text style={styles.quickLinkIcon}>⚙️</Text>
+            <View style={styles.quickLinkIconWrap}>
+              <Icon name="settings" size={20} color={Colors.textPrimary} />
+            </View>
             <Text style={styles.quickLinkText}>Settings</Text>
             <Text style={styles.quickLinkArrow}>→</Text>
           </TouchableOpacity>
@@ -331,8 +348,11 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
   },
 
-  statusIcon: {
-    fontSize: 24,
+  statusIconWrap: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: Spacing.md,
   },
 
@@ -410,8 +430,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent + '40',
   },
 
-  actionIcon: {
-    fontSize: 40,
+  actionIconWrap: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: Spacing.md,
   },
 
@@ -449,8 +472,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.secondaryGlow,
   },
 
-  quickLinkIcon: {
-    fontSize: 20,
+  quickLinkIconWrap: {
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: Spacing.md,
   },
 

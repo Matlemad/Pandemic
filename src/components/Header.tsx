@@ -2,16 +2,16 @@
  * Header Component
  */
 
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Colors, Spacing, Typography } from '../constants/theme';
 
 interface HeaderProps {
   title: string;
   subtitle?: string;
-  leftIcon?: string;
+  leftIcon?: string | ReactNode;
   onLeftPress?: () => void;
-  rightIcon?: string;
+  rightIcon?: string | ReactNode;
   onRightPress?: () => void;
   showBack?: boolean;
   onBack?: () => void;
@@ -37,7 +37,7 @@ export function Header({
         )}
         {leftIcon && !showBack && (
           <TouchableOpacity style={styles.iconButton} onPress={onLeftPress}>
-            <Text style={styles.icon}>{leftIcon}</Text>
+            {typeof leftIcon === 'string' ? <Text style={styles.icon}>{leftIcon}</Text> : leftIcon}
           </TouchableOpacity>
         )}
       </View>
@@ -56,7 +56,7 @@ export function Header({
       <View style={styles.right}>
         {rightIcon && (
           <TouchableOpacity style={styles.iconButton} onPress={onRightPress}>
-            <Text style={styles.icon}>{rightIcon}</Text>
+            {typeof rightIcon === 'string' ? <Text style={styles.icon}>{rightIcon}</Text> : rightIcon}
           </TouchableOpacity>
         )}
       </View>

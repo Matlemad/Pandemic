@@ -24,6 +24,7 @@ import { Header } from '../src/components/Header';
 import { RoomCard } from '../src/components/RoomCard';
 import { VenueRoomCard } from '../src/components/VenueRoomCard';
 import { EmptyState } from '../src/components/EmptyState';
+import { Icon } from '../src/components';
 import { useRoomStore } from '../src/stores/roomStore';
 import { useAppStore } from '../src/stores/appStore';
 import roomService from '../src/services/RoomService';
@@ -451,7 +452,7 @@ export default function JoinScreen() {
   
   if (venueHosts.length > 0) {
     sections.push({
-      title: '📡 Venue Rooms (Wi-Fi Cross-Platform)',
+      title: 'Venue Rooms (Wi-Fi Cross-Platform)',
       type: 'venue',
       data: venueHosts,
     });
@@ -459,7 +460,7 @@ export default function JoinScreen() {
   
   if (sortedRooms.length > 0) {
     sections.push({
-      title: '📱 Nearby Rooms (P2P)',
+      title: 'Nearby Rooms (P2P)',
       type: 'p2p',
       data: sortedRooms,
     });
@@ -479,7 +480,7 @@ export default function JoinScreen() {
           stopVenueDiscovery();
           router.back();
         }}
-        rightIcon="🔄"
+        rightIcon={<Icon name="lens" size={20} color={Colors.textPrimary} />}
         onRightPress={handleRefresh}
       />
 
@@ -501,10 +502,10 @@ export default function JoinScreen() {
       {showOldAndroidWarning && totalCount === 0 && (
         <View style={styles.oldAndroidWarning}>
           <View style={styles.warningHeader}>
-            <Text style={styles.warningIcon}>⚠️</Text>
+            <Icon name="warning" size={20} color={Colors.accent} />
             <Text style={styles.warningTitle}>Android {Platform.Version}</Text>
             <TouchableOpacity onPress={() => setShowOldAndroidWarning(false)}>
-              <Text style={styles.warningClose}>✕</Text>
+              <Icon name="close" size={16} color={Colors.textMuted} />
             </TouchableOpacity>
           </View>
           <Text style={styles.warningText}>
@@ -514,7 +515,10 @@ export default function JoinScreen() {
             style={styles.warningConnectButton}
             onPress={() => setShowManualConnect(true)}
           >
-            <Text style={styles.warningConnectButtonText}>📶 Connect Manually</Text>
+            <View style={styles.warningConnectRow}>
+              <Icon name="wifi" size={16} color={Colors.textPrimary} />
+              <Text style={styles.warningConnectButtonText}>Connect Manually</Text>
+            </View>
           </TouchableOpacity>
         </View>
       )}
@@ -536,7 +540,10 @@ export default function JoinScreen() {
           }
           renderSectionHeader={({ section }: { section: RoomSection }) => (
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{section.title}</Text>
+              <View style={styles.sectionHeaderRow}>
+                <Icon name={section.type === 'venue' ? 'radar' : 'mobile'} size={16} color={Colors.textMuted} />
+                <Text style={styles.sectionTitle}>{section.title}</Text>
+              </View>
               {section.type === 'venue' && (
                 <View style={styles.crossPlatformTag}>
                   <Text style={styles.crossPlatformTagText}>🍎↔️🤖</Text>
@@ -601,7 +608,7 @@ export default function JoinScreen() {
         />
       ) : !isAnySanning ? (
         <EmptyState
-          icon="📡"
+          icon={<Icon name="radar" size={48} color={Colors.textMuted} />}
           title="No rooms found"
           description={
             venueAvailable
@@ -616,7 +623,7 @@ export default function JoinScreen() {
       {/* Tips */}
       {totalCount === 0 && !isAnySanning && (
         <View style={styles.tips}>
-          <Text style={styles.tipsTitle}>💡 Tips</Text>
+          <Text style={styles.tipsTitle}>Tips</Text>
           <Text style={styles.tipText}>• Get closer to the host device (P2P)</Text>
           <Text style={styles.tipText}>• Connect to the same Wi-Fi network as the Venue</Text>
           <Text style={styles.tipText}>• Make sure Bluetooth is enabled</Text>
@@ -631,7 +638,10 @@ export default function JoinScreen() {
         style={styles.manualConnectButton}
         onPress={() => setShowManualConnect(true)}
       >
-        <Text style={styles.manualConnectText}>📶 Connect manually to Venue Host</Text>
+        <View style={styles.manualConnectRow}>
+          <Icon name="wifi" size={16} color={Colors.textSecondary} />
+          <Text style={styles.manualConnectText}>Connect manually to Venue Host</Text>
+        </View>
       </TouchableOpacity>
 
       {/* Hotspot Credentials Modal */}
@@ -660,7 +670,7 @@ export default function JoinScreen() {
                   <Text style={styles.hotspotValue}>{hotspotInfo?.password || '(none)'}</Text>
                   {hotspotInfo?.password && (
                     <TouchableOpacity onPress={handleCopyPassword} style={styles.copyButton}>
-                      <Text style={styles.copyButtonText}>📋</Text>
+                      <Text style={styles.copyButtonText}>Copy</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -678,7 +688,10 @@ export default function JoinScreen() {
               style={styles.openWifiButton}
               onPress={openWifiSettings}
             >
-              <Text style={styles.openWifiButtonText}>📶 Open Wi-Fi Settings</Text>
+              <View style={styles.openWifiRow}>
+                <Icon name="wifi" size={18} color={Colors.textPrimary} />
+                <Text style={styles.openWifiButtonText}>Open Wi-Fi Settings</Text>
+              </View>
             </TouchableOpacity>
             
             <View style={styles.modalButtons}>
@@ -699,7 +712,10 @@ export default function JoinScreen() {
                 {isJoining ? (
                   <ActivityIndicator size="small" color={Colors.textPrimary} />
                 ) : (
-                  <Text style={styles.modalConnectText}>✅ I'm Connected</Text>
+                  <View style={styles.modalConnectRow}>
+                    <Icon name="check" size={16} color={Colors.textPrimary} />
+                    <Text style={styles.modalConnectText}>I'm Connected</Text>
+                  </View>
                 )}
               </TouchableOpacity>
             </View>
@@ -1073,5 +1089,35 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: Typography.sizes.sm,
     fontWeight: '600',
+  },
+
+  warningConnectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+
+  manualConnectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+
+  openWifiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+
+  modalConnectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
 });
