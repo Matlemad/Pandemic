@@ -13,7 +13,7 @@ export function getDashboardHtml(port: number): string {
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { 
       font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+      background: #0A0A0B;
       color: #e0e0e0;
       min-height: 100vh;
       padding: 24px;
@@ -24,12 +24,43 @@ export function getDashboardHtml(port: number): string {
     .header { 
       display: flex; 
       align-items: center; 
-      gap: 16px; 
-      margin-bottom: 24px;
-      padding-bottom: 20px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+      gap: 20px; 
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid #2A2A2F;
     }
-    .header h1 { font-size: 26px; color: #ff2d55; font-weight: 700; }
+    .logo-section {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .logo-svg {
+      width: 56px;
+      height: 56px;
+    }
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+    }
+    .logo-text h1 { 
+      font-size: 28px; 
+      color: #FFFFFF; 
+      font-weight: 900; 
+      letter-spacing: 3px;
+      line-height: 1;
+    }
+    .logo-text .subtitle {
+      font-size: 12px;
+      color: #09f5d7;
+      font-weight: 500;
+      margin-top: 4px;
+      letter-spacing: 1px;
+    }
+    .header-badges {
+      display: flex;
+      gap: 10px;
+      margin-left: auto;
+    }
     .status-badge {
       padding: 6px 14px;
       border-radius: 20px;
@@ -56,7 +87,7 @@ export function getDashboardHtml(port: number): string {
       text-align: center;
       border: 1px solid rgba(255,255,255,0.08);
     }
-    .stat-value { font-size: 32px; font-weight: bold; color: #ff2d55; }
+    .stat-value { font-size: 32px; font-weight: bold; color: #09f5d7; }
     .stat-label { font-size: 13px; color: #888; margin-top: 6px; }
     
     /* Sections */
@@ -93,7 +124,7 @@ export function getDashboardHtml(port: number): string {
       color: #fff;
       font-size: 14px;
     }
-    .form-input:focus { outline: none; border-color: #ff2d55; }
+    .form-input:focus { outline: none; border-color: #09f5d7; }
     
     /* Toggle */
     .toggle-row {
@@ -114,7 +145,7 @@ export function getDashboardHtml(port: number): string {
       cursor: pointer;
       transition: background 0.2s;
     }
-    .toggle.on { background: #ff2d55; }
+    .toggle.on { background: #09f5d7; }
     .toggle::after {
       content: '';
       position: absolute;
@@ -139,10 +170,10 @@ export function getDashboardHtml(port: number): string {
       transition: all 0.2s;
     }
     .btn-primary { 
-      background: #ff2d55; 
-      color: #fff; 
+      background: #09f5d7; 
+      color: #0A0A0B; 
     }
-    .btn-primary:hover { background: #e0254a; }
+    .btn-primary:hover { background: #00c4aa; }
     .btn-primary:disabled { background: #444; cursor: not-allowed; }
     .btn-secondary {
       background: rgba(255,255,255,0.1);
@@ -169,8 +200,8 @@ export function getDashboardHtml(port: number): string {
       cursor: pointer;
       transition: all 0.2s;
     }
-    .upload-zone:hover { border-color: #ff2d55; background: rgba(255,45,85,0.05); }
-    .upload-zone.dragover { border-color: #ff2d55; background: rgba(255,45,85,0.1); }
+    .upload-zone:hover { border-color: #09f5d7; background: rgba(9,245,215,0.05); }
+    .upload-zone.dragover { border-color: #09f5d7; background: rgba(9,245,215,0.1); }
     .upload-icon { font-size: 40px; margin-bottom: 10px; }
     .upload-text { font-size: 14px; color: #888; }
     .upload-input { display: none; }
@@ -240,7 +271,7 @@ export function getDashboardHtml(port: number): string {
     }
     .progress-fill {
       height: 100%;
-      background: #ff2d55;
+      background: #09f5d7;
       transition: width 0.3s;
     }
     
@@ -265,9 +296,19 @@ export function getDashboardHtml(port: number): string {
   <div class="container">
     <!-- Header -->
     <div class="header">
-      <h1>🦠 Pandemic Venue Host</h1>
-      <span id="serverStatus" class="status-badge status-online">● Server Running</span>
-      <span id="mdnsStatus" class="status-badge status-offline">○ mDNS Off</span>
+      <div class="logo-section">
+        <svg class="logo-svg" viewBox="0 0 202.4 220.2" fill="#09f5d7">
+          <path d="M1.7,109.35c2.06,4.8,7.7,9.89,12.56,11.33,7.86,2.35,14.73-.67,22.02-3.84,4.18-1.82,8.5-3.71,13.12-4.57,18.56-3.48,32.1.21,38.1,10.37,6.99,11.85,2.41,31.06-11.4,47.8-2.35,2.84-5.31,5.34-8.18,7.75-7.32,6.16-14.89,12.53-11.87,24.71,3.05,12.29,13.85,16.44,22.61,15.1,8.96-1.38,18.23-8.78,17.43-21.78-.23-3.75-.75-7-1.25-10.15-.95-6-1.86-11.66-.54-19.74,2.9-17.81,11.8-30.23,23.81-33.21,11.14-2.77,23.32,3.28,33.41,16.59,2.79,3.68,4.6,7.8,6.35,11.78,1.4,3.19,2.72,6.2,4.49,8.91,7.12,10.93,19.01,11.7,27.05,7.79,7.14-3.48,13.94-12.06,9.59-24.81-3.98-11.67-12.51-12.57-20.76-13.44-2.95-.31-6.01-.63-8.95-1.42-18.43-4.91-31.96-16.33-33.67-28.41-1.41-9.99,4.9-19.52,18.27-27.56,7.83-4.71,13.39-5.48,19.83-6.38,3.43-.48,6.98-.97,11.16-2.11,12.86-3.5,17.23-14.19,15.85-23.23-1.31-8.56-8.35-17.55-20.93-17.09-11.88.45-16.37,10.02-20.72,19.28-1.53,3.25-3.1,6.6-4.96,9.4-9.36,14.09-23.16,22.37-33.59,20.17-8.19-1.73-13.71-9.63-15.96-22.84-1.94-11.4-.23-17.8,1.75-25.21,1.01-3.77,2.06-7.68,2.81-12.67,1.56-10.33-6.05-17.94-13.77-20.63-1.99-.69-4.23-1.15-6.56-1.23-6.07-.21-12.7,2.15-16.88,9.44-7.88,13.71-.96,21.37,6.36,29.47,2.85,3.16,5.8,6.42,8,10.18,8.69,14.92,10.38,31.21,4.2,40.56-4.81,7.27-14.05,10.27-26.75,8.67-11.2-1.41-16.59-4.67-23.41-8.79-2.58-1.56-5.25-3.17-8.53-4.88-8.79-4.59-18.82-3.53-25.54,2.71C.05,93.07-1.67,101.49,1.7,109.35Z"/>
+        </svg>
+        <div class="logo-text">
+          <h1>PANDEMIC</h1>
+          <span class="subtitle">Venue Host Mode</span>
+        </div>
+      </div>
+      <div class="header-badges">
+        <span id="serverStatus" class="status-badge status-online">● Server Running</span>
+        <span id="mdnsStatus" class="status-badge status-offline">○ mDNS Off</span>
+      </div>
     </div>
     
     <!-- Stats -->

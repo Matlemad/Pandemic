@@ -251,6 +251,7 @@ export class WebSocketHandler {
     }
     
     // Send room info
+    const locked = room.locked ?? hostState.isRoomLocked();
     this.send(ws, {
       type: VenueMessageType.ROOM_INFO,
       roomId: room.roomId,
@@ -258,6 +259,7 @@ export class WebSocketHandler {
       hostId: this.hostId,
       features: { relay: true },
       peerCount: this.roomManager.getRoomPeerCount(room.roomId),
+      locked,
       ts: Date.now(),
     });
     

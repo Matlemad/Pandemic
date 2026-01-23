@@ -1,4 +1,4 @@
-# 🦠 Pandemic v1.2.0 - Release Notes
+# 🦠 Pandemic - Release Notes
 
 ## 📦 Contenuto Release
 
@@ -12,7 +12,7 @@ Questa release include:
 
 ### Installazione
 
-1. Scarica `pandemic-android-v1.2.0.apk`
+1. Scarica `Pandemic-android-release.apk` (APK firmato)
 2. Sul tuo Android:
    - Vai su **Impostazioni → Sicurezza**
    - Abilita **"Origini sconosciute"** o **"Installa app sconosciute"**
@@ -194,5 +194,5 @@ Windows potrebbe bloccare l'eseguibile. Clicca **"Altre informazioni"** → **"E
 
 ---
 
-**Versione**: v1.2.0  
-**Data**: 2026-01-12
+**Versione**: vX.Y.Z  
+**Data**: YYYY-MM-DD

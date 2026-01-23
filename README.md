@@ -273,6 +273,24 @@ npx expo run:ios --device
 npx expo run:android --device
 ```
 
+### Build Android Release (APK firmato)
+
+Genera un APK installabile per distribuzione/test:
+
+```bash
+# Da android/
+export PANDemic_RELEASE_STORE_FILE="pandemic-app.keystore"
+export PANDemic_RELEASE_KEY_ALIAS="pandemic-app"
+export PANDemic_RELEASE_STORE_PASSWORD="YOUR_PASSWORD"
+export PANDemic_RELEASE_KEY_PASSWORD="YOUR_PASSWORD"
+
+./gradlew assembleRelease
+```
+
+Output:
+- `android/app/build/outputs/apk/release/app-release.apk`
+- (opzionale) copia in `release/Pandemic-android-release.apk`
+
 ---
 
 ## 📱 Utilizzo

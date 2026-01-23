@@ -292,14 +292,10 @@ export class VenueLanTransport {
 
       this.ws.onerror = (error) => {
         clearTimeout(timeout);
-        console.error('[VenueLan] ==========================================');
-        console.error('[VenueLan] WebSocket connection FAILED to:', wsUrl);
-        console.error('[VenueLan] Error:', JSON.stringify(error));
-        console.error('[VenueLan] Possible causes:');
-        console.error('[VenueLan]   1. Devices not on same Wi-Fi network');
-        console.error('[VenueLan]   2. Firewall blocking port', host.port);
-        console.error('[VenueLan]   3. Host not running or wrong IP');
-        console.error('[VenueLan] ==========================================');
+        // Only show detailed error for first attempt, reduce noise for retries
+        if (this.reconnectAttempts === 0) {
+          console.warn('[VenueLan] Connection failed to:', wsUrl);
+        }
         this.connectionState = VenueConnectionState.DISCONNECTED;
         this.onConnectionStateChange?.(this.connectionState);
         reject(new Error(`WebSocket connection failed to ${wsUrl}`));
@@ -312,6 +308,10 @@ export class VenueLanTransport {
   }
 
   async disconnect(): Promise<void> {
+    // Prevent auto-reconnect when intentionally disconnecting
+    this.reconnectAttempts = this.maxReconnectAttempts;
+    this.currentHost = null;
+    
     this.stopHeartbeat();
     
     if (this.ws) {
@@ -321,7 +321,6 @@ export class VenueLanTransport {
     
     this.connectionState = VenueConnectionState.DISCONNECTED;
     this.onConnectionStateChange?.(this.connectionState);
-    this.currentHost = null;
     this.currentRoomId = null;
     this.roomPeers.clear();
     this.sharedFiles.clear();
@@ -335,29 +334,50 @@ export class VenueLanTransport {
   private handleMessage(event: MessageEvent): void {
     // Check for binary data (file chunks)
     if (event.data instanceof ArrayBuffer) {
-      console.log('[VenueLan] ====== BINARY CHUNK RECEIVED ======');
-      console.log('[VenueLan] Size:', event.data.byteLength, 'bytes');
       venueRelay.handleBinaryChunk(event.data);
       return;
     }
     
     // Some React Native WebSocket implementations use Blob instead of ArrayBuffer
     if (event.data instanceof Blob) {
-      console.log('[VenueLan] ====== BINARY BLOB RECEIVED ======');
-      console.log('[VenueLan] Blob size:', event.data.size, 'bytes');
       // Convert Blob to ArrayBuffer
       event.data.arrayBuffer().then((buffer) => {
-        console.log('[VenueLan] Converted to ArrayBuffer:', buffer.byteLength, 'bytes');
         venueRelay.handleBinaryChunk(buffer);
       });
       return;
     }
 
-    try {
-      const message = JSON.parse(event.data);
-      this.handleJsonMessage(message);
-    } catch (error) {
-      console.error('[VenueLan] Failed to parse message:', error);
+    // Handle string data
+    if (typeof event.data === 'string') {
+      // First, try to parse as JSON
+      try {
+        const message = JSON.parse(event.data);
+        this.handleJsonMessage(message);
+        return;
+      } catch {
+        // Not valid JSON - might be base64 binary data from React Native WebSocket
+      }
+      
+      // Check if it looks like base64 binary data (doesn't start with '{' and is reasonably long)
+      if (event.data.length > 100 && !event.data.startsWith('{')) {
+        try {
+          // Try to decode as base64
+          const binaryString = atob(event.data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          venueRelay.handleBinaryChunk(bytes.buffer);
+          return;
+        } catch {
+          // Not valid base64, ignore
+        }
+      }
+      
+      // Unknown string data, log only if small enough
+      if (event.data.length < 200) {
+        console.warn('[VenueLan] Unhandled string message:', event.data.substring(0, 100));
+      }
     }
   }
 
@@ -500,25 +520,23 @@ export class VenueLanTransport {
     // Try to auto-reconnect if we had a host
     if (previousHost && this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      console.log(`[VenueLan] Attempting auto-reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
       
       setTimeout(async () => {
         try {
           await this.connectToVenueHost(previousHost);
-          console.log('[VenueLan] Auto-reconnect successful');
+          console.log('[VenueLan] Reconnected successfully');
         } catch (error) {
-          console.error('[VenueLan] Auto-reconnect failed:', error);
-          // If all retries exhausted, notify disconnect
+          // Silent fail for retries, only log on final failure
           if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+            console.warn('[VenueLan] Could not reconnect to host after', this.maxReconnectAttempts, 'attempts');
             this.currentHost = null;
             this.onDisconnected?.();
           }
         }
-      }, 2000 * this.reconnectAttempts); // Exponential backoff: 2s, 4s, 6s
+      }, 2000 * this.reconnectAttempts);
     } else {
       // No host or max retries reached
       this.currentHost = null;
-      console.log('[VenueLan] Disconnected from host');
       this.onDisconnected?.();
     }
   }

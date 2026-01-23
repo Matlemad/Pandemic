@@ -4,7 +4,7 @@
  * Uses native modules to discover venue hosts on the local network.
  */
 
-import { NativeModules, NativeEventEmitter } from 'react-native';
+import { AppState, NativeModules, NativeEventEmitter } from 'react-native';
 import { DiscoveredVenueHost, VenueTxtRecord } from './types';
 
 const { VenueDiscoveryModule } = NativeModules as { VenueDiscoveryModule: any };
@@ -27,6 +27,7 @@ class VenueDiscoveryManager {
   private subscriptions: Array<{ remove: () => void }> = [];
   private discoveredHosts: Map<string, DiscoveredVenueHost> = new Map();
   private isDiscovering = false;
+  private wasDiscoveringBeforeBackground = false;
   
   // Callbacks
   private onHostFound: ((host: DiscoveredVenueHost) => void) | null = null;
@@ -37,7 +38,25 @@ class VenueDiscoveryManager {
     if (isVenueDiscoveryAvailable) {
       this.nativeEmitter = new NativeEventEmitter(VenueDiscoveryModule);
       this.setupEventListeners();
+      this.setupAppStateListeners();
     }
+  }
+
+  private setupAppStateListeners(): void {
+    if (!isVenueDiscoveryAvailable) return;
+    AppState.addEventListener('change', (state) => {
+      if (state === 'background' || state === 'inactive') {
+        this.wasDiscoveringBeforeBackground = this.isDiscovering;
+        if (this.isDiscovering) {
+          this.stopDiscovery();
+        }
+      } else if (state === 'active') {
+        if (this.wasDiscoveringBeforeBackground) {
+          this.startDiscovery();
+        }
+        this.wasDiscoveringBeforeBackground = false;
+      }
+    });
   }
 
   private setupEventListeners(): void {
@@ -290,9 +309,14 @@ class VenueDiscoveryManager {
     }
     
     try {
-      await VenueDiscoveryModule.startAdvertise(serviceType, name, port, txt);
+      const safeName = sanitizeServiceName(name);
+      await VenueDiscoveryModule.startAdvertise(serviceType, safeName, port, txt);
       this.isAdvertising = true;
-      console.log('[VenueDiscovery] Started advertising:', name, 'on port', port);
+      if (safeName !== name) {
+        console.log('[VenueDiscovery] Started advertising:', safeName, '(from', name, ') on port', port);
+      } else {
+        console.log('[VenueDiscovery] Started advertising:', name, 'on port', port);
+      }
       return true;
     } catch (error) {
       console.error('[VenueDiscovery] Failed to start advertising:', error);
@@ -357,5 +381,13 @@ class VenueDiscoveryManager {
 
 // Export singleton
 export const venueDiscovery = new VenueDiscoveryManager();
+
+function sanitizeServiceName(name: string): string {
+  const trimmed = name.trim();
+  const ascii = trimmed.replace(/[^\x20-\x7E]/g, '');
+  const cleaned = ascii.replace(/[^a-zA-Z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  const result = cleaned.length > 0 ? cleaned : 'PandemicRoom';
+  return result.slice(0, 63);
+}
 export default venueDiscovery;
 

@@ -123,7 +123,7 @@ npx expo run:android --device
 
 ---
 
-### Test 2: Creazione Stanza (Simulata)
+### Test 2: Creazione Stanza
 
 **Obiettivo:** Testare il flusso di creazione stanza
 
@@ -135,11 +135,11 @@ npx expo run:android --device
 5. Verifica che appaia Room screen
 
 **Risultato atteso:**
-- Stanza creata (simulata)
+- Stanza creata
 - Room screen mostra info stanza
 - Stato "Host" visibile
 
-**Nota:** BLE advertising è simulato, quindi non vedrai altri device
+**Nota:** BLE advertising richiede device fisico
 
 ---
 
@@ -222,7 +222,7 @@ npx expo run:android --device
 
 ---
 
-### Test 6: Condivisione File (Simulata)
+### Test 6: Condivisione File
 
 **Obiettivo:** Testare condivisione metadati file
 
@@ -241,13 +241,11 @@ npx expo run:android --device
 **Risultato atteso:**
 - File condiviso visibile
 - Metadata corretti
-- Download inizia (simulato)
-
-**Nota:** Trasferimenti reali richiedono HTTP server nativo (non ancora implementato)
+- Download reale del file
 
 ---
 
-### Test 7: Trasferimenti (Simulati)
+### Test 7: Trasferimenti
 
 **Obiettivo:** Testare UI trasferimenti
 
@@ -261,10 +259,8 @@ npx expo run:android --device
 **Risultato atteso:**
 - Progress bar animata
 - Percentuale aggiornata
-- Speed simulato visibile
-- Completamento dopo ~10s
-
-**Nota:** Trasferimento è simulato, non scarica file reali
+- Speed reale visibile
+- File salvato in Library al termine
 
 ---
 
@@ -362,31 +358,8 @@ npx tsc --noEmit --fix
 
 ---
 
-## 🚀 Prossimi Passi per Testing Reale
-
-Per testare trasferimenti reali, serve implementare:
-
-1. **HTTP Server nativo** (per host)
-   - Usa `react-native-http-bridge` o native module
-   - Endpoint `/files/{id}` per streaming
-
-2. **HTTP Client con streaming** (per guest)
-   - Fetch API con ReadableStream
-   - Progress tracking
-
-3. **WebSocket server** (per coordinazione)
-   - Real-time updates
-   - Peer management
-
-4. **BLE GATT completo** (per fallback)
-   - Chunked transfer
-   - ACK mechanism
-
----
-
 ## 📝 Note
 
-- **MVP attuale:** La maggior parte delle funzionalità sono simulate
 - **BLE:** Funziona solo su device fisico
 - **Network:** Richiede stessa Wi-Fi locale
 - **iOS:** Background molto limitato
@@ -394,5 +367,5 @@ Per testare trasferimenti reali, serve implementare:
 
 ---
 
-*Ultimo aggiornamento: v1.0.0*
+*Ultimo aggiornamento: 2026-01-23*
 

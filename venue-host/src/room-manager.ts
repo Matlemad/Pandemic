@@ -41,6 +41,7 @@ export class RoomManager {
     this.rooms.set(this.defaultRoomId, {
       roomId: this.defaultRoomId,
       roomName: this.config.roomName,
+      locked: false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
@@ -90,12 +91,15 @@ export class RoomManager {
     return this.hostFiles.get(fileId) as any || null;
   }
   
-  updateDefaultRoom(name: string, id?: string, broadcastUpdate: boolean = false): void {
+  updateDefaultRoom(name: string, id?: string, locked?: boolean, broadcastUpdate: boolean = false): void {
     const room = this.rooms.get(this.defaultRoomId);
     if (room) {
       room.roomName = name;
       if (id) {
         room.roomId = id;
+      }
+      if (locked !== undefined) {
+        room.locked = locked;
       }
       room.updatedAt = Date.now();
       
@@ -108,6 +112,7 @@ export class RoomManager {
           hostId: 'venue-host',
           features: { relay: true },
           peerCount: this.getRoomPeerCount(this.defaultRoomId),
+          locked: room.locked ?? false,
           ts: Date.now(),
         });
         console.log(`[RoomManager] Broadcasted room info update: ${name}`);

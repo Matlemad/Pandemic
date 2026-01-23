@@ -255,6 +255,7 @@ export interface VenuePeer {
 export interface VenueRoom {
   roomId: string;
   roomName: string;
+  locked?: boolean;
   createdAt: number;
   updatedAt: number;
 }

@@ -15,7 +15,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useRootNavigationState } from 'expo-router';
 import { useAppStore } from '../src/stores/appStore';
 import { useRoomStore } from '../src/stores/roomStore';
 import { useTransferStore } from '../src/stores/transferStore';
@@ -30,6 +30,7 @@ export default function HomeScreen() {
   const networkCapabilities = useAppStore((state) => state.networkCapabilities);
   const activeTransferCount = useTransferStore((state) => state.activeTransferCount);
   const room = useRoomStore((state) => state.room);
+  const isInitialized = useAppStore((state) => state.isInitialized);
   
   // Permission states
   const [bleReady, setBleReady] = useState(false);
@@ -118,19 +119,28 @@ export default function HomeScreen() {
     initializePermissions();
   }, [initializePermissions]);
 
+  // Check if navigation is ready
+  const rootNavigationState = useRootNavigationState();
+  const navigationReady = rootNavigationState?.key != null;
+
   // If already in a room, redirect to room screen
   useEffect(() => {
-    if (room) {
-      router.replace('/room');
+    if (room && navigationReady && isInitialized) {
+      // Defer navigation until after layout render
+      requestAnimationFrame(() => {
+        router.replace('/room');
+      });
     }
-  }, [room]);
+  }, [room, navigationReady, isInitialized]);
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Hero Section */}
         <View style={styles.hero}>
-          <Text style={styles.logo}>🦠</Text>
+          <View style={styles.logoContainer}>
+            <Icon name="pandemic-logo" size={80} color="#09f5d7" />
+          </View>
           <Text style={styles.title}>PANDEMIC</Text>
           <Text style={styles.subtitle}>
             Share audio locally{'\n'}No internet connection required
@@ -312,9 +322,10 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
 
-  logo: {
-    fontSize: 72,
+  logoContainer: {
     marginBottom: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   title: {

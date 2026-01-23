@@ -16,7 +16,7 @@ npm run release:prepare v1.2.0
 ```
 
 Questo script:
-- ✅ Builda l'APK Android release (se non esiste già)
+- ✅ Builda l'APK Android release (firmato)
 - ✅ Builda tutti i binari venue-host (Mac/Windows/Linux)
 - ✅ Copia tutti i file in `release/`
 - ✅ Crea un README.md con istruzioni
@@ -52,7 +52,7 @@ Dopo `npm run release:prepare`, troverai in `release/`:
 
 ```
 release/
-├── pandemic-android-v1.2.0.apk          # App Android
+├── Pandemic-android-release.apk         # App Android (firmata)
 ├── pandemic-venue-host-macos-arm64       # Mac Apple Silicon
 ├── pandemic-venue-host-macos-x64         # Mac Intel
 ├── pandemic-venue-host-win-x64.exe       # Windows
@@ -81,6 +81,15 @@ release/
 ---
 
 ## 🐛 Troubleshooting
+
+**Signing APK (release):**
+```bash
+# Da android/
+export PANDemic_RELEASE_STORE_FILE="pandemic-app.keystore"
+export PANDemic_RELEASE_KEY_ALIAS="pandemic-app"
+export PANDemic_RELEASE_STORE_PASSWORD="YOUR_PASSWORD"
+export PANDemic_RELEASE_KEY_PASSWORD="YOUR_PASSWORD"
+```
 
 **APK non trovato:**
 ```bash

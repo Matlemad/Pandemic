@@ -172,9 +172,10 @@ export default function LanHostScreen() {
         port: '8787',
       };
       
+      const advertiseName = `Pandemic-${room.id}`;
       const advertised = await venueDiscovery.startAdvertise(
         VENUE_SERVICE_TYPE,
-        room.name,
+        advertiseName,
         room.port,
         txt
       );

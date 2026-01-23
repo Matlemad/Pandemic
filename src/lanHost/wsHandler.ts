@@ -284,14 +284,17 @@ class PhoneHostWSHandler {
       return;
     }
     
-    // Add peer
-    lanHostState.addPeer({
-      peerId,
-      deviceName: 'Guest', // Will be updated from HELLO if available
-      platform: 'unknown',
-      sharedFileCount: 0,
-      joinedAt: Date.now(),
-    });
+    const isHostPeer = lanHostState.isHostPeer(peerId);
+    // Add peer only if it's not the host device
+    if (!isHostPeer) {
+      lanHostState.addPeer({
+        peerId,
+        deviceName: 'Guest', // Will be updated from HELLO if available
+        platform: 'unknown',
+        sharedFileCount: 0,
+        joinedAt: Date.now(),
+      });
+    }
     
     // Send room info
     await this.send(clientId, {
@@ -324,17 +327,19 @@ class PhoneHostWSHandler {
       ts: Date.now(),
     });
     
-    // Broadcast peer joined
-    await this.broadcast({
-      type: VenueMessageType.PEER_JOINED,
-      peer: {
-        peerId,
-        deviceName: 'Guest',
-        platform: 'unknown',
-        sharedFileCount: 0,
-      },
-      ts: Date.now(),
-    }, clientId);
+    // Broadcast peer joined (exclude host device)
+    if (!isHostPeer) {
+      await this.broadcast({
+        type: VenueMessageType.PEER_JOINED,
+        peer: {
+          peerId,
+          deviceName: 'Guest',
+          platform: 'unknown',
+          sharedFileCount: 0,
+        },
+        ts: Date.now(),
+      }, clientId);
+    }
     
     console.log('[PhoneHostWS] Peer joined room:', peerId);
   }

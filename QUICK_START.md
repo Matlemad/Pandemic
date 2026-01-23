@@ -138,34 +138,19 @@ rm -rf node_modules && npm install
 ## 📱 Cosa Funziona ORA
 
 ### ✅ Funziona
-- UI completa
-- Navigazione
-- State management
-- Libreria audio locale
-- Import file
+- UI completa e navigazione
+- Libreria audio locale + import
 - Discovery BLE (device fisico)
-- Join room (simulato)
-- UI trasferimenti (simulato)
+- Phone Host Mode (stanza da telefono)
+- Venue Host (cross-platform via Wi-Fi)
+- Trasferimenti reali via WebSocket/LAN
 
-### ⚠️ Parzialmente Funziona
-- BLE discovery (solo device fisico)
-- Network detection (richiede Wi-Fi)
-
-### ❌ Non Ancora Implementato
-- HTTP server nativo (trasferimenti reali)
-- WebSocket server (coordinazione real-time)
-- BLE transfer completo (fallback mode)
+### ⚠️ Limitazioni
+- BLE e discovery richiedono device fisico
+- Hotspot richiede intervento manuale dell'utente
+- Android 10-11: mDNS discovery intermittente (usa Hotspot/Manual)
 
 ---
 
-## 🎯 Prossimi Passi
-
-Per testare trasferimenti reali, serve implementare:
-1. HTTP server nativo per file streaming
-2. WebSocket per coordinazione
-3. BLE GATT completo per fallback
-
----
-
-**💡 Tip:** Inizia con Expo Go per testare UI, poi passa a build nativo per BLE!
+**💡 Tip:** Inizia con Expo Go per testare UI, poi passa a build nativo per BLE e trasferimenti reali.
 

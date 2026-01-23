@@ -81,21 +81,31 @@ export class PhoneHostServer {
     });
     
     const sub3 = this.nativeEmitter.addListener('lan_host_client_message', (data: any) => {
-      const { clientId, message } = data;
+      const { clientId, message, isBinary } = data;
+      
+      // Check if it's a binary message (Android sends binary on same event with isBinary flag)
+      if (isBinary) {
+        // Binary message (base64 encoded) - don't try to parse as JSON
+        this.callbacks.onClientMessage?.(clientId, message, true);
+        return;
+      }
+      
       try {
         // Text message - parse as JSON
         const parsed = typeof message === 'string' ? JSON.parse(message) : message;
         this.callbacks.onClientMessage?.(clientId, parsed, false);
       } catch (error) {
-        console.error('[PhoneHostServer] Failed to parse message:', error);
+        // Don't spam logs for binary data that was misidentified
+        if (typeof message === 'string' && message.length < 500) {
+          console.warn('[PhoneHostServer] Failed to parse message as JSON, treating as raw');
+        }
         this.callbacks.onClientMessage?.(clientId, message, false);
       }
     });
     
-    // Binary messages come on a separate event!
+    // Binary messages may also come on a separate event (iOS)
     const sub3b = this.nativeEmitter.addListener('lan_host_client_binary_message', (data: any) => {
       const { clientId, data: base64Data } = data;
-      console.log('[PhoneHostServer] Binary message received from', clientId, 'size:', base64Data?.length || 0, 'chars');
       // Binary message (base64 encoded)
       this.callbacks.onClientMessage?.(clientId, base64Data, true);
     });

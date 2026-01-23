@@ -345,13 +345,18 @@ class VenueRelayManager {
     state: 'pending' | 'in_progress' | 'complete' | 'error',
     error?: string
   ): void {
+    const totalBytes = transfer.fileMeta.size || 0;
+    const progressPercent = totalBytes > 0 
+      ? Math.floor((transfer.bytesTransferred / totalBytes) * 100)
+      : 0;
+    
     const progress: RelayTransferProgress = {
       transferId: transfer.transferId,
       fileId: transfer.fileId,
       direction: transfer.direction,
       bytesTransferred: transfer.bytesTransferred,
-      totalBytes: transfer.fileMeta.size,
-      progress: Math.floor((transfer.bytesTransferred / transfer.fileMeta.size) * 100),
+      totalBytes,
+      progress: progressPercent,
       state,
       error,
     };

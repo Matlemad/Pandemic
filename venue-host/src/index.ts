@@ -52,9 +52,10 @@ function startMdns(room: HostRoom): void {
     stopMdns();
     
     bonjour = new Bonjour.default();
+    const serviceName = sanitizeServiceName(config.serviceName);
     
     mdnsService = bonjour.publish({
-      name: config.serviceName,
+      name: serviceName,
       type: 'audiowallet',
       port: config.port,
       txt: {
@@ -66,7 +67,11 @@ function startMdns(room: HostRoom): void {
     });
     
     mdnsService.on('up', () => {
-      console.log(`[mDNS] Service advertised: ${config.serviceName}`);
+      if (serviceName !== config.serviceName) {
+        console.log(`[mDNS] Service advertised: ${serviceName} (from ${config.serviceName})`);
+      } else {
+        console.log(`[mDNS] Service advertised: ${config.serviceName}`);
+      }
       console.log(`[mDNS] Room: ${room.name} (${room.locked ? 'Locked' : 'Unlocked'})`);
     });
     
@@ -115,6 +120,14 @@ function updateMdns(room: HostRoom): void {
   
   lastMdnsUpdate = now;
   startMdns(room);
+}
+
+function sanitizeServiceName(name: string): string {
+  const trimmed = name.trim();
+  const ascii = trimmed.replace(/[^\x20-\x7E]/g, '');
+  const cleaned = ascii.replace(/[^a-zA-Z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  const result = cleaned.length > 0 ? cleaned : 'PandemicVenueHost';
+  return result.slice(0, 63);
 }
 
 // ============================================================================
@@ -182,7 +195,7 @@ async function main(): Promise<void> {
   // Integrate host state with room manager
   const existingRoom = hostState.getRoom();
   if (existingRoom) {
-    roomManager.updateDefaultRoom(existingRoom.name, existingRoom.id);
+    roomManager.updateDefaultRoom(existingRoom.name, existingRoom.id, existingRoom.locked);
     console.log(`[Init] Loaded room from disk: ${existingRoom.name}`);
     
     // Publish host files to room
@@ -198,7 +211,7 @@ async function main(): Promise<void> {
     try {
       if (state.room) {
         // Update room and broadcast to connected peers
-        roomManager.updateDefaultRoom(state.room.name, state.room.id, true);
+        roomManager.updateDefaultRoom(state.room.name, state.room.id, state.room.locked, true);
         roomManager.setHostFiles(state.hostFiles || [], true);
         updateMdns(state.room);
       } else {
