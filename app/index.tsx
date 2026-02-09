@@ -16,9 +16,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useRootNavigationState } from 'expo-router';
+import * as Linking from 'expo-linking';
 import { useAppStore } from '../src/stores/appStore';
 import { useRoomStore } from '../src/stores/roomStore';
 import { useTransferStore } from '../src/stores/transferStore';
+import { venueLanTransport } from '../src/venue/transport';
 import { bleService } from '../src/services/BleService';
 import { Icon } from '../src/components';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../src/constants/theme';
@@ -132,6 +134,72 @@ export default function HomeScreen() {
       });
     }
   }, [room, navigationReady, isInitialized]);
+
+  // Handle deep links: pandemic://join?mode=lan&host=X&port=Y&roomId=Z
+  useEffect(() => {
+    if (!navigationReady || !isInitialized) return;
+    
+    const handleDeepLink = async (event: { url: string }) => {
+      const { url } = event;
+      console.log('[Home] Deep link received:', url);
+      
+      if (!url.includes('pandemic://join')) return;
+      
+      try {
+        const parsed = Linking.parse(url);
+        const host = parsed.queryParams?.host as string;
+        const port = parseInt((parsed.queryParams?.port as string) || '8787', 10);
+        const roomId = parsed.queryParams?.roomId as string;
+        
+        if (!host) {
+          console.warn('[Home] Deep link missing host param');
+          return;
+        }
+        
+        console.log('[Home] Deep link join:', { host, port, roomId });
+        
+        // Set peerId
+        const deviceId = useAppStore.getState().deviceId;
+        if (deviceId) venueLanTransport.setLocalPeerId(deviceId);
+        
+        // Setup disconnect handler
+        const roomStore = useRoomStore.getState();
+        venueLanTransport.setOnDisconnected(() => {
+          roomStore.leaveRoom();
+          router.replace('/');
+        });
+        
+        // Connect
+        const wsUrl = `ws://${host}:${port}`;
+        await venueLanTransport.connectToUrl(wsUrl);
+        
+        roomStore.joinRoom({
+          roomId: roomId || `${host}:${port}`,
+          roomName: roomId || 'Pandemic Room',
+          hostId: `venue-${host}:${port}`,
+          hostName: `QR Room`,
+          hostAddress: `${host}:${port}`,
+          wifiAvailable: true,
+          peerCount: 0,
+          createdAt: Date.now(),
+          locked: false,
+        });
+        
+        requestAnimationFrame(() => router.replace('/room'));
+      } catch (error: any) {
+        console.error('[Home] Deep link connection failed:', error.message);
+      }
+    };
+    
+    // Check for initial URL (app opened from QR/link)
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
+    });
+    
+    // Listen for incoming links while app is open
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+    return () => subscription.remove();
+  }, [navigationReady, isInitialized]);
 
   return (
     <SafeAreaView style={styles.container}>

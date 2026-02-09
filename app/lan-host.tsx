@@ -2,7 +2,7 @@
  * LAN Host Screen - Create and manage a phone-hosted LAN room
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Network from 'expo-network';
+import QRCode from 'react-native-qrcode-svg';
 import { Header } from '../src/components/Header';
 import { Button } from '../src/components/Button';
 import { Icon } from '../src/components';
@@ -51,6 +52,29 @@ export default function LanHostScreen() {
   const [isBleAdvertising, setIsBleAdvertising] = useState(false);
   
   const currentRoom = lanHostState.getRoom();
+  
+  // Build QR code content when room is active
+  const qrContent = useMemo(() => {
+    if (!isHosting) return null;
+    const room = lanHostState.getRoom();
+    if (!room) return null;
+    
+    const host = localIp || '192.168.43.1';
+    const params = new URLSearchParams({
+      mode: 'lan',
+      host,
+      port: String(room.port),
+      roomId: room.id,
+    });
+    
+    // Include WiFi credentials if hotspot mode
+    if (isHotspotMode && hotspotSSID.trim()) {
+      params.set('ssid', hotspotSSID.trim());
+      if (hotspotPassword) params.set('pass', hotspotPassword);
+    }
+    
+    return `pandemic://join?${params.toString()}`;
+  }, [isHosting, isHotspotMode, hotspotSSID, hotspotPassword, localIp]);
   
   // Check network state
   const checkNetworkState = useCallback(async () => {
@@ -91,7 +115,7 @@ export default function LanHostScreen() {
     
     if (currentRoom) {
       setRoomName(currentRoom.name);
-      setLocked(currentRoom.locked);
+      setLocked(currentRoom.locked ?? false);
       setIsHosting(true);
       checkServerStatus();
     }
@@ -499,6 +523,30 @@ export default function LanHostScreen() {
             </View>
           )}
           
+          {/* QR Code to share room */}
+          {isHosting && qrContent && (
+            <View style={styles.qrCard}>
+              <Text style={styles.qrTitle}>Share via QR Code</Text>
+              <Text style={styles.qrHint}>
+                {isHotspotMode && hotspotSSID.trim()
+                  ? 'Others can scan this from "Find Rooms > Scan QR" to get your hotspot credentials and join the room.'
+                  : 'Others on the same Wi-Fi can scan this from "Find Rooms > Scan QR" to join directly.'}
+              </Text>
+              <View style={styles.qrContainer}>
+                <QRCode
+                  value={qrContent}
+                  size={200}
+                  backgroundColor="#FFFFFF"
+                  color="#000000"
+                />
+              </View>
+              <Text style={styles.qrInstructions}>
+                Scan with Pandemic app{'\n'}
+                Find Rooms {'\u2192'} Scan QR Code
+              </Text>
+            </View>
+          )}
+          
           {/* Network Info */}
           <View style={styles.networkCard}>
             <Text style={styles.networkLabel}>Network Status:</Text>
@@ -708,6 +756,39 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.sm,
     color: Colors.textSecondary,
     marginBottom: Spacing.xs,
+  },
+  qrCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.secondary,
+    alignItems: 'center',
+  },
+  qrTitle: {
+    fontSize: Typography.sizes.md,
+    fontWeight: '600',
+    color: Colors.secondary,
+    marginBottom: Spacing.xs,
+  },
+  qrHint: {
+    fontSize: Typography.sizes.sm,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
+  qrContainer: {
+    backgroundColor: '#FFFFFF',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+  },
+  qrInstructions: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   actions: {
     marginTop: Spacing.lg,

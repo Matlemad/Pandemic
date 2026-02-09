@@ -20,7 +20,8 @@
         "NSBluetoothAlwaysUsageDescription": "Pandemic usa Bluetooth per scoprire e connettersi a dispositivi vicini",
         "NSBluetoothPeripheralUsageDescription": "Pandemic usa Bluetooth per scoprire e connettersi a dispositivi vicini",
         "NSLocalNetworkUsageDescription": "Pandemic usa la rete locale per trasferire file audio",
-        "NSPhotoLibraryUsageDescription": "Pandemic accede alla libreria per importare file audio"
+        "NSPhotoLibraryUsageDescription": "Pandemic accede alla libreria per importare file audio",
+        "NSCameraUsageDescription": "Pandemic usa la fotocamera per scansionare QR code di connessione"
       }
     },
     "android": {
@@ -42,7 +43,8 @@
         "android.permission.CHANGE_WIFI_STATE",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_AUDIO"
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.CAMERA"
       ]
     },
     "web": {
@@ -51,6 +53,12 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Pandemic usa la fotocamera per scansionare QR code di connessione"
+        }
+      ],
       [
         "expo-media-library",
         {
