@@ -2,7 +2,8 @@
  * Dashboard HTML — Control plane for venue host
  */
 
-export function getDashboardHtml(port: number): string {
+export function getDashboardHtml(port: number, localIps?: string[]): string {
+  const primaryIp = localIps && localIps.length > 0 ? localIps[0] : 'localhost';
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -290,6 +291,39 @@ export function getDashboardHtml(port: number): string {
     .log-success { color: #00ff88; }
     .log-error { color: #ff6464; }
     .log-info { color: #5ac8fa; }
+    
+    /* QR Code Section */
+    .qr-section {
+      display: none;
+      text-align: center;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .qr-section.visible { display: block; }
+    .qr-section h3 {
+      font-size: 14px;
+      color: #09f5d7;
+      margin-bottom: 8px;
+    }
+    .qr-hint {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 16px;
+    }
+    .qr-canvas-wrap {
+      display: inline-block;
+      background: #fff;
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+    .qr-footer {
+      font-size: 11px;
+      color: #555;
+    }
+    .wifi-fields { margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.06); }
+    .wifi-fields .form-label { font-size: 12px; }
   </style>
 </head>
 <body>
@@ -355,6 +389,31 @@ export function getDashboardHtml(port: number): string {
         </div>
         
         <div id="roomStatus" style="margin-top: 16px; font-size: 13px; color: #666;"></div>
+        
+        <!-- WiFi Credentials (optional, for QR) -->
+        <div class="wifi-fields">
+          <div class="form-group" style="margin-bottom: 8px;">
+            <label class="form-label">📶 WiFi Name (SSID) — optional, for QR</label>
+            <input type="text" id="wifiSSID" class="form-input" placeholder="e.g. MyNetwork" />
+          </div>
+          <div class="form-group" style="margin-bottom: 8px;">
+            <label class="form-label">🔑 WiFi Password — optional</label>
+            <input type="text" id="wifiPassword" class="form-input" placeholder="WiFi password" />
+          </div>
+          <button class="btn btn-secondary" onclick="generateQR()" style="width: 100%;">Generate QR Code</button>
+        </div>
+        
+        <!-- QR Code -->
+        <div id="qrSection" class="qr-section">
+          <h3>Share Room via QR</h3>
+          <div class="qr-hint">Scan with Pandemic app: Find Rooms → Scan QR Code</div>
+          <div class="qr-canvas-wrap">
+            <canvas id="qrCanvas"></canvas>
+          </div>
+          <div class="qr-footer">
+            Contains room link<span id="qrWifiNote"></span>
+          </div>
+        </div>
       </div>
       
       <!-- Host Library -->
@@ -399,6 +458,8 @@ export function getDashboardHtml(port: number): string {
     let adminToken = null;
     let currentState = { room: null, hostFiles: [] };
     let isLocked = false;
+    const SERVER_IP = '${primaryIp}';
+    const SERVER_PORT = ${port};
     
     // Format helpers
     function formatSize(bytes) {
@@ -473,6 +534,10 @@ export function getDashboardHtml(port: number): string {
         document.getElementById('roomStatus').innerHTML = '✅ Room active: <strong>' + currentState.room.name + '</strong>' + (isLocked ? ' (Locked)' : '');
         document.getElementById('mdnsStatus').className = 'status-badge status-online';
         document.getElementById('mdnsStatus').textContent = '● mDNS Active';
+        // Auto-generate QR if not already visible
+        if (!document.getElementById('qrSection').classList.contains('visible')) {
+          setTimeout(autoGenerateQR, 500);
+        }
       } else {
         document.getElementById('roomName').value = '';
         document.getElementById('saveRoomBtn').textContent = 'Create Room';
@@ -642,6 +707,106 @@ export function getDashboardHtml(port: number): string {
         }
       } catch (e) {
         console.error('Stats refresh error:', e);
+      }
+    }
+    
+    // QR Code generation
+    function generateQR() {
+      if (!currentState.room) {
+        log('Create a room first before generating QR', 'error');
+        return;
+      }
+      
+      const ssid = document.getElementById('wifiSSID').value.trim();
+      const pass = document.getElementById('wifiPassword').value;
+      
+      const params = new URLSearchParams({
+        mode: 'lan',
+        host: SERVER_IP,
+        port: String(SERVER_PORT),
+        roomId: currentState.room.id,
+      });
+      
+      if (ssid) {
+        params.set('ssid', ssid);
+        if (pass) params.set('pass', pass);
+      }
+      
+      const deepLink = 'pandemic://join?' + params.toString();
+      
+      // Generate QR using canvas
+      renderQR(deepLink);
+      
+      const section = document.getElementById('qrSection');
+      section.className = 'qr-section visible';
+      
+      const note = document.getElementById('qrWifiNote');
+      note.textContent = ssid ? ' + WiFi credentials (' + ssid + ')' : '';
+      
+      log('QR code generated' + (ssid ? ' with WiFi: ' + ssid : ''), 'success');
+    }
+    
+    // Minimal QR Code renderer (uses external library loaded from CDN)
+    let qrLibLoaded = false;
+    function loadQRLib() {
+      return new Promise((resolve, reject) => {
+        if (qrLibLoaded) { resolve(); return; }
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js';
+        script.onload = () => { qrLibLoaded = true; resolve(); };
+        script.onerror = () => reject(new Error('Failed to load QR library'));
+        document.head.appendChild(script);
+      });
+    }
+    
+    async function renderQR(text) {
+      try {
+        await loadQRLib();
+      } catch {
+        // Fallback: show the link as text
+        log('QR library unavailable (offline). Deep link: ' + text, 'info');
+        const canvas = document.getElementById('qrCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 200;
+        canvas.height = 60;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, 200, 60);
+        ctx.fillStyle = '#000';
+        ctx.font = '10px monospace';
+        ctx.fillText('QR unavailable offline', 10, 25);
+        ctx.fillText('Use: Scan QR in app', 10, 45);
+        return;
+      }
+      
+      const qr = qrcode(0, 'M');
+      qr.addData(text);
+      qr.make();
+      
+      const canvas = document.getElementById('qrCanvas');
+      const ctx = canvas.getContext('2d');
+      const moduleCount = qr.getModuleCount();
+      const cellSize = Math.max(4, Math.floor(200 / moduleCount));
+      const size = moduleCount * cellSize;
+      canvas.width = size;
+      canvas.height = size;
+      
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, size, size);
+      
+      ctx.fillStyle = '#000000';
+      for (let row = 0; row < moduleCount; row++) {
+        for (let col = 0; col < moduleCount; col++) {
+          if (qr.isDark(row, col)) {
+            ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+    }
+    
+    // Auto-generate QR when room exists
+    function autoGenerateQR() {
+      if (currentState.room) {
+        generateQR();
       }
     }
     

@@ -281,7 +281,7 @@ async function main(): Promise<void> {
     // Dashboard
     if (url === '/') {
       res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(getDashboardHtml(config.port));
+      res.end(getDashboardHtml(config.port, ips));
       return;
     }
     
