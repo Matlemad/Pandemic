@@ -15,13 +15,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.pandemic.app",
+      "bundleIdentifier": "digital.yomi.pandemic",
       "infoPlist": {
         "NSBluetoothAlwaysUsageDescription": "Pandemic usa Bluetooth per scoprire e connettersi a dispositivi vicini",
         "NSBluetoothPeripheralUsageDescription": "Pandemic usa Bluetooth per scoprire e connettersi a dispositivi vicini",
         "NSLocalNetworkUsageDescription": "Pandemic usa la rete locale per trasferire file audio",
         "NSPhotoLibraryUsageDescription": "Pandemic accede alla libreria per importare file audio",
-        "NSCameraUsageDescription": "Pandemic usa la fotocamera per scansionare QR code di connessione"
+        "NSCameraUsageDescription": "Pandemic usa la fotocamera per scansionare QR code di connessione",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -44,7 +45,12 @@
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_AUDIO",
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.ACCESS_MEDIA_LOCATION",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO"
       ]
     },
     "web": {
@@ -77,6 +83,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "049a9a56-d42f-46aa-9e9e-7771c4d2b42a"
+      }
     }
   }
 }
