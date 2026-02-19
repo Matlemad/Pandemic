@@ -22,7 +22,10 @@
         "NSLocalNetworkUsageDescription": "Pandemic usa la rete locale per trasferire file audio",
         "NSPhotoLibraryUsageDescription": "Pandemic accede alla libreria per importare file audio",
         "NSCameraUsageDescription": "Pandemic usa la fotocamera per scansionare QR code di connessione",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSBonjourServices": [
+          "_audiowallet._tcp"
+        ]
       }
     },
     "android": {
@@ -79,7 +82,8 @@
         {
           "iCloudContainerEnvironment": "Production"
         }
-      ]
+      ],
+      "./plugins/withIosNativeModules"
     ],
     "experiments": {
       "typedRoutes": true

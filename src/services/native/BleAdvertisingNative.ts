@@ -26,8 +26,8 @@ interface BleAdvertisingNativeModule {
 
 const { BleAdvertisingModule } = NativeModules;
 
-// Check if module is available
-const isAvailable = Platform.OS === 'android' && BleAdvertisingModule != null;
+// Check if module is available (Android + iOS)
+const isAvailable = (Platform.OS === 'android' || Platform.OS === 'ios') && BleAdvertisingModule != null;
 
 /**
  * Native BLE Advertising Service
@@ -40,11 +40,11 @@ class BleAdvertisingNative {
   constructor() {
     this.isModuleAvailable = isAvailable;
     
-    if (!isAvailable && Platform.OS === 'android') {
-      console.warn('⚠️ BleAdvertisingModule not available - BLE advertising will use simulation mode');
-      console.warn('💡 Make sure to rebuild the app with: npx expo run:android --device');
-    } else if (Platform.OS !== 'android') {
-      console.warn(`⚠️ BLE advertising native module not available on ${Platform.OS} (Android only)`);
+    if (!isAvailable && (Platform.OS === 'android' || Platform.OS === 'ios')) {
+      console.warn('BleAdvertisingModule not available - BLE advertising disabled');
+      console.warn('Make sure to rebuild the app with native modules');
+    } else if (Platform.OS !== 'android' && Platform.OS !== 'ios') {
+      console.warn(`BLE advertising not supported on ${Platform.OS}`);
     } else {
       console.log('✅ BleAdvertisingModule native module loaded successfully');
     }
