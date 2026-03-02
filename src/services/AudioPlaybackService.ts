@@ -10,6 +10,7 @@
  */
 
 import { Audio, AVPlaybackStatus } from 'expo-av';
+import { getInfoAsync } from 'expo-file-system';
 import { useLibraryStore, LibraryTrack } from '../stores/libraryStore';
 
 // ============================================================================
@@ -29,21 +30,21 @@ class AudioPlaybackService {
   private onTrackEndCallback: (() => void) | null = null;
 
   /**
-   * Initialize audio session
+   * Configure the audio session. Re-applied before every playback
+   * because other native modules (BLE, camera, etc.) can reset the
+   * AVAudioSession category on iOS.
    */
-  async initialize(): Promise<void> {
-    if (this.isInitialized) return;
-
+  async ensureAudioSession(): Promise<void> {
     try {
       await Audio.setAudioModeAsync({
         playsInSilentModeIOS: true,
+        allowsRecordingIOS: false,
         staysActiveInBackground: false,
         shouldDuckAndroid: true,
       });
       this.isInitialized = true;
-      console.log('[AudioPlayback] Initialized');
     } catch (error) {
-      console.error('[AudioPlayback] Failed to initialize:', error);
+      console.error('[AudioPlayback] Failed to configure audio session:', error);
     }
   }
 
@@ -51,7 +52,7 @@ class AudioPlaybackService {
    * Play a specific track by ID
    */
   async playTrack(trackId: string): Promise<boolean> {
-    await this.initialize();
+    await this.ensureAudioSession();
 
     const store = useLibraryStore.getState();
     const track = store.getTrackById(trackId);
@@ -61,28 +62,49 @@ class AudioPlaybackService {
       return false;
     }
 
+    // Verify the file actually exists on disk before attempting playback
     try {
-      // Unload previous sound if any
+      const info = await getInfoAsync(track.localUri);
+      if (!info.exists) {
+        console.error('[AudioPlayback] File missing on disk:', track.localUri);
+        store.setIsPlaying(false);
+        return false;
+      }
+      console.log('[AudioPlayback] File verified, size:', 'size' in info ? info.size : 'unknown');
+    } catch (e) {
+      console.error('[AudioPlayback] File check failed:', e, 'uri:', track.localUri);
+    }
+
+    try {
       await this.unloadCurrent();
 
-      // Create new sound
-      const { sound } = await Audio.Sound.createAsync(
+      console.log('[AudioPlayback] Loading:', track.title, 'uri:', track.localUri);
+
+      const { sound, status } = await Audio.Sound.createAsync(
         { uri: track.localUri },
-        { shouldPlay: true },
+        { shouldPlay: true, progressUpdateIntervalMillis: 500 },
         this.handlePlaybackStatusUpdate.bind(this)
       );
+
+      // Check initial status for load errors
+      if (!status.isLoaded) {
+        console.error('[AudioPlayback] Sound loaded but status indicates not loaded');
+        await sound.unloadAsync();
+        store.setIsPlaying(false);
+        return false;
+      }
 
       this.sound = sound;
       this.currentTrackId = trackId;
 
-      // Update store
       store.setCurrentTrack(trackId);
       store.setIsPlaying(true);
 
-      console.log('[AudioPlayback] Playing:', track.title);
+      console.log('[AudioPlayback] Playing:', track.title, 'duration:', status.durationMillis);
       return true;
-    } catch (error) {
-      console.error('[AudioPlayback] Failed to play:', error);
+    } catch (error: any) {
+      console.error('[AudioPlayback] Failed to play:', error?.message || error);
+      console.error('[AudioPlayback] Track URI was:', track.localUri);
       store.setIsPlaying(false);
       return false;
     }
@@ -236,7 +258,12 @@ class AudioPlaybackService {
   }
 
   private handlePlaybackStatusUpdate(status: AVPlaybackStatus): void {
-    if (!status.isLoaded) return;
+    if (!status.isLoaded) {
+      if ('error' in status && status.error) {
+        console.error('[AudioPlayback] Playback error:', status.error);
+      }
+      return;
+    }
 
     const store = useLibraryStore.getState();
 
