@@ -211,7 +211,7 @@ export default function RoomScreen() {
         },
         // Complete callback
         async (data) => {
-          console.log('[Room] Download complete, saving to library...');
+          console.log('[Room] Download complete, saving to library... bytes:', data.byteLength);
           
           try {
             // Ensure library directory exists
@@ -225,23 +225,35 @@ export default function RoomScreen() {
             const safeFileName = file.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
             const fileUri = `${libraryDir}${safeFileName}`;
             
-            // Convert Uint8Array to base64 in chunks to avoid stack overflow
+            // Convert Uint8Array to base64 using a lookup table (safe on all platforms).
+            // btoa + String.fromCharCode.apply can fail on iOS/Hermes with large buffers.
             const uint8ArrayToBase64 = (bytes: Uint8Array): string => {
-              const CHUNK_SIZE = 8192;
-              let binary = '';
-              for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-                const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, bytes.length));
-                binary += String.fromCharCode.apply(null, Array.from(chunk));
+              const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+              const len = bytes.length;
+              let base64 = '';
+              for (let i = 0; i < len; i += 3) {
+                const b0 = bytes[i];
+                const b1 = i + 1 < len ? bytes[i + 1] : 0;
+                const b2 = i + 2 < len ? bytes[i + 2] : 0;
+                base64 += CHARS[b0 >> 2];
+                base64 += CHARS[((b0 & 3) << 4) | (b1 >> 4)];
+                base64 += i + 1 < len ? CHARS[((b1 & 15) << 2) | (b2 >> 6)] : '=';
+                base64 += i + 2 < len ? CHARS[b2 & 63] : '=';
               }
-              return btoa(binary);
+              return base64;
             };
             
             const base64 = uint8ArrayToBase64(data);
+            console.log('[Room] Base64 encoded, length:', base64.length);
+            
             await writeAsStringAsync(fileUri, base64, {
               encoding: EncodingType.Base64,
             });
             
-            console.log('[Room] File saved to:', fileUri);
+            // Verify file was written correctly
+            const savedInfo = await getInfoAsync(fileUri);
+            console.log('[Room] File saved to:', fileUri, 'exists:', savedInfo.exists,
+              'size:', 'size' in savedInfo ? savedInfo.size : 'unknown');
             
             // Add to library
             const addTrack = useLibraryStore.getState().addTrack;
