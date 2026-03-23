@@ -28,7 +28,7 @@ import { venueRelay } from '../src/venue/relay';
 import { useLibraryStore } from '../src/stores/libraryStore';
 import { lanHostState } from '../src/lanHost/hostState';
 import { RoomRole, SharedFileMetadata, TransferDirection, TransportMode, AudioFormat } from '../src/types';
-import { documentDirectory, getInfoAsync, makeDirectoryAsync, writeAsStringAsync, EncodingType } from 'expo-file-system/legacy';
+import { documentDirectory, getInfoAsync, makeDirectoryAsync, writeAsStringAsync, downloadAsync, EncodingType, cacheDirectory } from 'expo-file-system/legacy';
 import { Colors, Spacing, BorderRadius, Typography } from '../src/constants/theme';
 
 type TabType = 'files' | 'transfers' | 'peers';
@@ -225,35 +225,57 @@ export default function RoomScreen() {
             const safeFileName = file.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
             const fileUri = `${libraryDir}${safeFileName}`;
             
-            // Convert Uint8Array to base64 using a lookup table (safe on all platforms).
-            // btoa + String.fromCharCode.apply can fail on iOS/Hermes with large buffers.
+            // Encode Uint8Array to base64 using lookup table (safe on all platforms)
             const uint8ArrayToBase64 = (bytes: Uint8Array): string => {
               const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
               const len = bytes.length;
-              let base64 = '';
+              const parts: string[] = [];
               for (let i = 0; i < len; i += 3) {
                 const b0 = bytes[i];
                 const b1 = i + 1 < len ? bytes[i + 1] : 0;
                 const b2 = i + 2 < len ? bytes[i + 2] : 0;
-                base64 += CHARS[b0 >> 2];
-                base64 += CHARS[((b0 & 3) << 4) | (b1 >> 4)];
-                base64 += i + 1 < len ? CHARS[((b1 & 15) << 2) | (b2 >> 6)] : '=';
-                base64 += i + 2 < len ? CHARS[b2 & 63] : '=';
+                parts.push(
+                  CHARS[b0 >> 2] +
+                  CHARS[((b0 & 3) << 4) | (b1 >> 4)] +
+                  (i + 1 < len ? CHARS[((b1 & 15) << 2) | (b2 >> 6)] : '=') +
+                  (i + 2 < len ? CHARS[b2 & 63] : '=')
+                );
               }
-              return base64;
+              return parts.join('');
             };
             
             const base64 = uint8ArrayToBase64(data);
-            console.log('[Room] Base64 encoded, length:', base64.length);
-            
-            await writeAsStringAsync(fileUri, base64, {
-              encoding: EncodingType.Base64,
-            });
+            console.log('[Room] Base64 encoded, length:', base64.length, 'original bytes:', data.byteLength);
+
+            // Primary method: use downloadAsync with a data URI.
+            // This leverages NSURLSession on iOS which reliably decodes
+            // base64 to binary, avoiding issues with writeAsStringAsync.
+            let writeSuccess = false;
+            try {
+              const dataUri = `data:${mimeType};base64,${base64}`;
+              await downloadAsync(dataUri, fileUri);
+              writeSuccess = true;
+              console.log('[Room] File written via downloadAsync');
+            } catch (dlErr) {
+              console.warn('[Room] downloadAsync failed, falling back to writeAsStringAsync:', dlErr);
+            }
+
+            // Fallback: writeAsStringAsync with Base64 encoding
+            if (!writeSuccess) {
+              await writeAsStringAsync(fileUri, base64, {
+                encoding: EncodingType.Base64,
+              });
+              console.log('[Room] File written via writeAsStringAsync');
+            }
             
             // Verify file was written correctly
             const savedInfo = await getInfoAsync(fileUri);
-            console.log('[Room] File saved to:', fileUri, 'exists:', savedInfo.exists,
-              'size:', 'size' in savedInfo ? savedInfo.size : 'unknown');
+            const savedSize = 'size' in savedInfo ? (savedInfo as any).size : 0;
+            console.log('[Room] File saved to:', fileUri, 'exists:', savedInfo.exists, 'size:', savedSize);
+            
+            if (!savedInfo.exists || savedSize === 0) {
+              throw new Error(`File write failed: exists=${savedInfo.exists} size=${savedSize}`);
+            }
             
             // Add to library
             const addTrack = useLibraryStore.getState().addTrack;
