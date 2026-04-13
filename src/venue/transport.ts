@@ -337,48 +337,90 @@ export class VenueLanTransport {
       venueRelay.handleBinaryChunk(event.data);
       return;
     }
-    
-    // Some React Native WebSocket implementations use Blob instead of ArrayBuffer
-    if (event.data instanceof Blob) {
-      // Convert Blob to ArrayBuffer
+
+    // Some React Native WebSocket implementations deliver binary as Blob
+    if (typeof Blob !== 'undefined' && event.data instanceof Blob) {
       event.data.arrayBuffer().then((buffer) => {
         venueRelay.handleBinaryChunk(buffer);
+      }).catch((err) => {
+        console.error('[VenueLan] Blob→ArrayBuffer failed:', err);
       });
       return;
     }
 
-    // Handle string data
     if (typeof event.data === 'string') {
-      // First, try to parse as JSON
+      // Try JSON first (control messages)
+      if (event.data.startsWith('{')) {
+        try {
+          const message = JSON.parse(event.data);
+          this.handleJsonMessage(message);
+          return;
+        } catch {
+          // Not valid JSON, fall through
+        }
+      }
+
+      // On iOS, React Native WebSocket delivers binary frames as base64 strings
+      // even with binaryType='arraybuffer'. Decode using a safe lookup table
+      // instead of atob() which can fail silently on Hermes for large payloads.
+      if (event.data.length > 50) {
+        const buffer = this.safeBase64Decode(event.data);
+        if (buffer) {
+          venueRelay.handleBinaryChunk(buffer);
+          return;
+        }
+      }
+
+      // Might still be JSON that doesn't start with '{'
       try {
         const message = JSON.parse(event.data);
         this.handleJsonMessage(message);
         return;
       } catch {
-        // Not valid JSON - might be base64 binary data from React Native WebSocket
+        // ignore
       }
-      
-      // Check if it looks like base64 binary data (doesn't start with '{' and is reasonably long)
-      if (event.data.length > 100 && !event.data.startsWith('{')) {
-        try {
-          // Try to decode as base64
-          const binaryString = atob(event.data);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          venueRelay.handleBinaryChunk(bytes.buffer);
-          return;
-        } catch {
-          // Not valid base64, ignore
-        }
-      }
-      
-      // Unknown string data, log only if small enough
+
       if (event.data.length < 200) {
         console.warn('[VenueLan] Unhandled string message:', event.data.substring(0, 100));
       }
     }
+  }
+
+  /**
+   * Decode base64 string to ArrayBuffer without using atob().
+   * atob() on Hermes/iOS fails silently for large binary payloads.
+   * Returns null if the string is not valid base64.
+   */
+  private safeBase64Decode(input: string): ArrayBuffer | null {
+    const LOOKUP = new Uint8Array(256);
+    const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    for (let i = 0; i < CHARS.length; i++) LOOKUP[CHARS.charCodeAt(i)] = i;
+
+    // Quick validation: base64 strings contain only [A-Za-z0-9+/=]
+    // and their length is a multiple of 4
+    const len = input.length;
+    if (len === 0 || len % 4 !== 0) return null;
+
+    // Check first few chars to reject obvious non-base64 (like JSON arrays)
+    const first = input.charCodeAt(0);
+    if (first === 91 /* [ */ || first === 123 /* { */) return null;
+
+    const pad = input.endsWith('==') ? 2 : input.endsWith('=') ? 1 : 0;
+    const byteLen = (len * 3) / 4 - pad;
+    const bytes = new Uint8Array(byteLen);
+
+    let p = 0;
+    for (let i = 0; i < len; i += 4) {
+      const c0 = LOOKUP[input.charCodeAt(i)];
+      const c1 = LOOKUP[input.charCodeAt(i + 1)];
+      const c2 = LOOKUP[input.charCodeAt(i + 2)];
+      const c3 = LOOKUP[input.charCodeAt(i + 3)];
+      bytes[p++] = (c0 << 2) | (c1 >> 4);
+      if (p < byteLen) bytes[p++] = ((c1 & 15) << 4) | (c2 >> 2);
+      if (p < byteLen) bytes[p++] = ((c2 & 3) << 6) | c3;
+    }
+
+    return bytes.buffer;
   }
 
   private handleJsonMessage(message: any): void {

@@ -28,7 +28,8 @@ import { venueRelay } from '../src/venue/relay';
 import { useLibraryStore } from '../src/stores/libraryStore';
 import { lanHostState } from '../src/lanHost/hostState';
 import { RoomRole, SharedFileMetadata, TransferDirection, TransportMode, AudioFormat } from '../src/types';
-import { documentDirectory, getInfoAsync, makeDirectoryAsync, writeAsStringAsync, downloadAsync, EncodingType, cacheDirectory } from 'expo-file-system/legacy';
+import { NativeModules } from 'react-native';
+import { documentDirectory, getInfoAsync, makeDirectoryAsync, writeAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { Colors, Spacing, BorderRadius, Typography } from '../src/constants/theme';
 
 type TabType = 'files' | 'transfers' | 'peers';
@@ -245,47 +246,44 @@ export default function RoomScreen() {
             };
             
             const base64 = uint8ArrayToBase64(data);
-            console.log('[Room] Base64 encoded, length:', base64.length, 'original bytes:', data.byteLength);
+            console.log('[Room] Base64 length:', base64.length, 'binary bytes:', data.byteLength);
 
-            // Primary method: use downloadAsync with a data URI.
-            // This leverages NSURLSession on iOS which reliably decodes
-            // base64 to binary, avoiding issues with writeAsStringAsync.
-            let writeSuccess = false;
-            try {
-              const dataUri = `data:${mimeType};base64,${base64}`;
-              await downloadAsync(dataUri, fileUri);
-              writeSuccess = true;
-              console.log('[Room] File written via downloadAsync');
-            } catch (dlErr) {
-              console.warn('[Room] downloadAsync failed, falling back to writeAsStringAsync:', dlErr);
+            // Use native module to write binary file directly.
+            // expo-file-system writeAsStringAsync with EncodingType.Base64
+            // does NOT reliably decode base64 to binary on iOS — it can
+            // write the base64 TEXT instead of decoded bytes.
+            const { LanHostModule } = NativeModules;
+            let savedSize = 0;
+
+            if (LanHostModule?.writeBase64ToFile) {
+              const result = await LanHostModule.writeBase64ToFile(base64, fileUri);
+              savedSize = result?.fileSize || result?.bytesWritten || 0;
+              console.log('[Room] Native write OK, bytes:', result?.bytesWritten, 'fileSize:', result?.fileSize);
+            } else {
+              await writeAsStringAsync(fileUri, base64, { encoding: EncodingType.Base64 });
+              const info = await getInfoAsync(fileUri);
+              savedSize = info.exists && 'size' in info ? (info as any).size : 0;
+              console.log('[Room] JS write, fileSize:', savedSize);
             }
 
-            // Fallback: writeAsStringAsync with Base64 encoding
-            if (!writeSuccess) {
-              await writeAsStringAsync(fileUri, base64, {
-                encoding: EncodingType.Base64,
-              });
-              console.log('[Room] File written via writeAsStringAsync');
+            // Verify: file must exist and size must roughly match the original binary
+            if (savedSize === 0) {
+              throw new Error('File write produced 0 bytes');
+            }
+            const sizeRatio = savedSize / data.byteLength;
+            if (sizeRatio > 1.2 || sizeRatio < 0.8) {
+              console.warn('[Room] Size mismatch! On-disk:', savedSize, 'expected ~', data.byteLength,
+                'ratio:', sizeRatio.toFixed(2), '(might be base64 text instead of binary)');
             }
             
-            // Verify file was written correctly
-            const savedInfo = await getInfoAsync(fileUri);
-            const savedSize = 'size' in savedInfo ? (savedInfo as any).size : 0;
-            console.log('[Room] File saved to:', fileUri, 'exists:', savedInfo.exists, 'size:', savedSize);
-            
-            if (!savedInfo.exists || savedSize === 0) {
-              throw new Error(`File write failed: exists=${savedInfo.exists} size=${savedSize}`);
-            }
-            
-            // Add to library
+            // Add to library using actual persisted size, not metadata
             const addTrack = useLibraryStore.getState().addTrack;
-            // Use file.title if available, otherwise extract from fileName
             const trackTitle = file.title || file.fileName.replace(/\.[^/.]+$/, '');
             addTrack({
               title: trackTitle,
               artist: file.ownerName === 'Venue Host' ? undefined : file.ownerName,
               durationMs: (file.duration || 0) * 1000,
-              size: file.size,
+              size: savedSize || data.byteLength,
               mimeType,
               localUri: fileUri,
               source: 'downloaded',

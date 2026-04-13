@@ -328,4 +328,41 @@ RCT_EXPORT_METHOD(isServerRunning:(RCTPromiseResolveBlock)resolve
   NSLog(@"[LanHostModule] Client disconnected: %@", clientId);
 }
 
+#pragma mark - File utility
+
+RCT_EXPORT_METHOD(writeBase64ToFile:(NSString *)base64
+                  filePath:(NSString *)filePath
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+  NSData *data = [[NSData alloc] initWithBase64EncodedString:base64
+                                                     options:NSDataBase64DecodingIgnoreUnknownCharacters];
+  if (!data || data.length == 0) {
+    reject(@"DECODE_FAILED", @"Base64 decode produced empty data", nil);
+    return;
+  }
+
+  // Strip file:// prefix to get a filesystem path
+  NSString *path = filePath;
+  if ([path hasPrefix:@"file://"]) {
+    path = [[NSURL URLWithString:filePath] path];
+  }
+
+  // Ensure parent directory exists
+  NSString *dir = [path stringByDeletingLastPathComponent];
+  [[NSFileManager defaultManager] createDirectoryAtPath:dir
+                            withIntermediateDirectories:YES
+                                            attributes:nil
+                                                 error:nil];
+
+  NSError *error;
+  BOOL ok = [data writeToFile:path options:NSDataWritingAtomic error:&error];
+  if (ok) {
+    NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:path error:nil];
+    NSNumber *fileSize = attrs[NSFileSize] ?: @(data.length);
+    resolve(@{@"bytesWritten": @(data.length), @"fileSize": fileSize});
+  } else {
+    reject(@"WRITE_FAILED", error.localizedDescription, error);
+  }
+}
+
 @end

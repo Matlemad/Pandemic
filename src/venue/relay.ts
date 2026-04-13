@@ -231,9 +231,17 @@ class VenueRelayManager {
     
     console.log('[VenueRelay] Chunks received:', transfer.receivedChunks.length);
 
-    // Combine all chunks
     const totalSize = transfer.receivedChunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
     console.log('[VenueRelay] Total size:', totalSize, 'Expected:', transfer.fileMeta.size);
+
+    // CRITICAL: reject downloads with 0 bytes received
+    if (totalSize === 0) {
+      console.error('[VenueRelay] FAILED: 0 bytes received, binary chunks were not captured');
+      this.updateProgress(transfer, 'error', 'Download failed: no data received');
+      transfer.onError?.('Download failed: no data received (binary transport issue)');
+      this.activeTransfers.delete(transferId);
+      return;
+    }
     
     const combined = new Uint8Array(totalSize);
     let offset = 0;
@@ -243,14 +251,11 @@ class VenueRelayManager {
       offset += chunk.byteLength;
     }
 
-    // TODO: Verify SHA256
-
     this.updateProgress(transfer, 'complete');
-    console.log('[VenueRelay] Calling onComplete callback...');
+    console.log('[VenueRelay] Calling onComplete with', totalSize, 'bytes');
     transfer.onComplete?.(combined);
     
     this.activeTransfers.delete(transferId);
-    console.log('[VenueRelay] Transfer removed from active list');
   }
 
   /**
