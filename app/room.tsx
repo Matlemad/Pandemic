@@ -222,8 +222,15 @@ export default function RoomScreen() {
               await makeDirectoryAsync(libraryDir, { intermediates: true });
             }
             
-            // Save file
-            const safeFileName = file.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+            // Save file — ensure extension exists (iOS requires it for audio playback)
+            let safeFileName = file.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+            if (!safeFileName.includes('.')) {
+              const ext = mimeType === 'audio/aac' ? '.aac'
+                : mimeType === 'audio/flac' ? '.flac'
+                : mimeType === 'audio/wav' ? '.wav'
+                : '.mp3';
+              safeFileName += ext;
+            }
             const fileUri = `${libraryDir}${safeFileName}`;
             
             // Encode Uint8Array to base64 using lookup table (safe on all platforms)
@@ -246,50 +253,36 @@ export default function RoomScreen() {
             };
             
             const base64 = uint8ArrayToBase64(data);
-            console.log('[Room] Base64 length:', base64.length, 'binary bytes:', data.byteLength);
 
-            // Use native module to write binary file directly.
-            // expo-file-system writeAsStringAsync with EncodingType.Base64
-            // does NOT reliably decode base64 to binary on iOS — it can
-            // write the base64 TEXT instead of decoded bytes.
+            // Write using native module (reliable binary decode on iOS) or JS fallback
             const { LanHostModule } = NativeModules;
             let savedSize = 0;
 
             if (LanHostModule?.writeBase64ToFile) {
               const result = await LanHostModule.writeBase64ToFile(base64, fileUri);
-              savedSize = result?.fileSize || result?.bytesWritten || 0;
-              console.log('[Room] Native write OK, bytes:', result?.bytesWritten, 'fileSize:', result?.fileSize);
+              savedSize = Number(result?.fileSize || result?.bytesWritten || 0);
             } else {
               await writeAsStringAsync(fileUri, base64, { encoding: EncodingType.Base64 });
               const info = await getInfoAsync(fileUri);
-              savedSize = info.exists && 'size' in info ? (info as any).size : 0;
-              console.log('[Room] JS write, fileSize:', savedSize);
+              savedSize = info.exists && 'size' in info ? Number((info as any).size) : 0;
             }
 
-            // Verify: file must exist and size must roughly match the original binary
             if (savedSize === 0) {
               throw new Error('File write produced 0 bytes');
             }
-            const sizeRatio = savedSize / data.byteLength;
-            if (sizeRatio > 1.2 || sizeRatio < 0.8) {
-              console.warn('[Room] Size mismatch! On-disk:', savedSize, 'expected ~', data.byteLength,
-                'ratio:', sizeRatio.toFixed(2), '(might be base64 text instead of binary)');
-            }
-            
-            // Add to library using actual persisted size, not metadata
+
+            // Add to library
             const addTrack = useLibraryStore.getState().addTrack;
             const trackTitle = file.title || file.fileName.replace(/\.[^/.]+$/, '');
             addTrack({
               title: trackTitle,
               artist: file.ownerName === 'Venue Host' ? undefined : file.ownerName,
               durationMs: (file.duration || 0) * 1000,
-              size: savedSize || data.byteLength,
+              size: savedSize,
               mimeType,
               localUri: fileUri,
               source: 'downloaded',
             });
-            
-            console.log('[Room] Track added to library:', trackTitle);
             
             completeTransfer(transferId);
             Alert.alert('Download complete', `"${trackTitle}" has been added to your library.`);
