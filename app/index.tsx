@@ -13,10 +13,12 @@ import {
   Platform,
   PermissionsAndroid,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useRootNavigationState } from 'expo-router';
 import * as Linking from 'expo-linking';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppStore } from '../src/stores/appStore';
 import { useRoomStore } from '../src/stores/roomStore';
 import { useTransferStore } from '../src/stores/transferStore';
@@ -38,6 +40,22 @@ export default function HomeScreen() {
   const [bleReady, setBleReady] = useState(false);
   const [locationReady, setLocationReady] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+
+  // Disclaimer state
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [disclaimerChecked, setDisclaimerChecked] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem('@pandemic_disclaimer_accepted').then((val) => {
+      if (val !== 'true') setShowDisclaimer(true);
+    });
+  }, []);
+
+  const acceptDisclaimer = useCallback(() => {
+    if (!disclaimerChecked) return;
+    AsyncStorage.setItem('@pandemic_disclaimer_accepted', 'true');
+    setShowDisclaimer(false);
+  }, [disclaimerChecked]);
 
   // Request permissions and initialize BLE on mount
   const initializePermissions = useCallback(async () => {
@@ -213,6 +231,9 @@ export default function HomeScreen() {
           <Text style={styles.subtitle}>
             Share audio locally{'\n'}No internet connection required
           </Text>
+          <Text style={styles.disclaimer}>
+            Users are responsible for the content they share{'\n'}and must have the necessary rights
+          </Text>
         </View>
 
         {/* Network Status */}
@@ -368,6 +389,37 @@ export default function HomeScreen() {
           <Text style={styles.version}>v1.0.0</Text>
         </View>
       </ScrollView>
+
+      <Modal visible={showDisclaimer} transparent animationType="fade">
+        <View style={styles.disclaimerOverlay}>
+          <View style={styles.disclaimerCard}>
+            <Icon name="pandemic-logo" size={48} color="#09f5d7" />
+            <Text style={styles.disclaimerTitle}>Welcome to Pandemic</Text>
+            <Text style={styles.disclaimerBody}>
+              This app allows you to share audio files locally with nearby devices.
+            </Text>
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={() => setDisclaimerChecked(!disclaimerChecked)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, disclaimerChecked && styles.checkboxChecked]}>
+                {disclaimerChecked && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <Text style={styles.checkboxLabel}>
+                I confirm I have rights to share audio content from my device
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.disclaimerButton, !disclaimerChecked && styles.disclaimerButtonDisabled]}
+              onPress={acceptDisclaimer}
+              disabled={!disclaimerChecked}
+            >
+              <Text style={styles.disclaimerButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -409,6 +461,15 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
+  },
+
+  disclaimer: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 16,
+    marginTop: Spacing.sm,
+    opacity: 0.6,
   },
 
   // Status Card
@@ -585,6 +646,83 @@ const styles = StyleSheet.create({
   version: {
     fontSize: Typography.sizes.xs,
     color: Colors.textMuted,
+  },
+
+  disclaimerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  disclaimerCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 360,
+  },
+  disclaimerTitle: {
+    fontSize: Typography.sizes.xl,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  disclaimerBody: {
+    fontSize: Typography.sizes.md,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: Spacing.lg,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: Colors.textSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 1,
+  },
+  checkboxChecked: {
+    backgroundColor: '#09f5d7',
+    borderColor: '#09f5d7',
+  },
+  checkmark: {
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  checkboxLabel: {
+    flex: 1,
+    fontSize: Typography.sizes.sm,
+    color: Colors.textPrimary,
+    lineHeight: 20,
+  },
+  disclaimerButton: {
+    backgroundColor: '#09f5d7',
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.sm + 2,
+    paddingHorizontal: Spacing.xl,
+    width: '100%',
+    alignItems: 'center',
+  },
+  disclaimerButtonDisabled: {
+    opacity: 0.3,
+  },
+  disclaimerButtonText: {
+    color: '#000',
+    fontSize: Typography.sizes.md,
+    fontWeight: '700',
   },
 });
 
