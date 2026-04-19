@@ -120,8 +120,13 @@ Questo sistema si comporta come:
 | **State** | Zustand | Gestione stato globale |
 | **BLE** | react-native-ble-plx | Bluetooth Low Energy |
 | **Network** | expo-network | Stato rete e IP |
+| **Audio** | expo-av | Playback audio |
 | **Storage** | expo-file-system | File audio locali |
 | **Storage** | AsyncStorage | Metadati e impostazioni |
+| **Native iOS** | Network.framework, NetService, CoreBluetooth | WS server, Bonjour, BLE |
+| **Native Android** | NsdManager, Java-WebSocket, BLE | mDNS, WS server, BLE |
+| **Build iOS** | EAS Build + TestFlight | Distribuzione iOS |
+| **Build Android** | Gradle + keystore firmato | APK distribuzione |
 
 ---
 
@@ -279,17 +284,25 @@ Genera un APK installabile per distribuzione/test:
 
 ```bash
 # Da android/
-export PANDemic_RELEASE_STORE_FILE="pandemic-app.keystore"
-export PANDemic_RELEASE_KEY_ALIAS="pandemic-app"
 export PANDemic_RELEASE_STORE_PASSWORD="YOUR_PASSWORD"
 export PANDemic_RELEASE_KEY_PASSWORD="YOUR_PASSWORD"
 
 ./gradlew assembleRelease
 ```
 
-Output:
-- `android/app/build/outputs/apk/release/app-release.apk`
-- (opzionale) copia in `release/Pandemic-android-release.apk`
+Output: `release/Pandemic-android-release.apk`
+
+### Build iOS (TestFlight)
+
+```bash
+# Build via EAS (cloud)
+eas build --platform ios --profile production
+
+# Submit a TestFlight
+eas submit --platform ios --latest
+```
+
+Richiede account Apple Developer (configurato in `eas.json`).
 
 ---
 
@@ -416,6 +429,8 @@ La **Libreria Audio** è il punto centrale per gestire i tuoi file audio:
 
 ### iOS
 
+- ✅ **Full native support**: WebSocket server (Network.framework), Bonjour (NetService), BLE (CoreBluetooth)
+- ✅ **Distribuzione via TestFlight** (EAS Build)
 - ⚠️ BLE funziona affidabilmente solo in foreground
 - ⚠️ Trasferimenti background inaffidabili
 - ❌ **Connessione automatica a hotspot impossibile** - Apple blocca la connessione programmatica a reti Wi-Fi
@@ -492,12 +507,12 @@ pandemic/
 │   │   └── admin-api.ts   # REST API for dashboard
 │   ├── package.json
 │   └── README.md
-├── ios/                   # Native iOS modules
-│   └── Pandemic/
-│       ├── LanHost/       # WebSocket server (Network.framework)
-│       ├── VenueDiscovery/ # mDNS (NetService)
-│       ├── BleAdvertising/ # BLE GATT server (CoreBluetooth)
-│       └── P2P/           # MultipeerConnectivity
+├── ios-native-modules/    # iOS native module sources (injected by config plugin)
+│   ├── LanHostModule.h/m  # WebSocket server (Network.framework) + file write
+│   ├── VenueDiscoveryModule.h/m # Bonjour mDNS (NetService)
+│   └── BleAdvertisingModule.h/m # BLE GATT server (CoreBluetooth)
+├── plugins/
+│   └── withIosNativeModules.js  # Expo config plugin for iOS native modules
 ├── android/               # Native Android modules
 │   └── app/src/main/java/com/pandemic/app/
 │       ├── lanhost/       # WebSocket server (Java-WebSocket)
@@ -572,7 +587,18 @@ L'interfaccia è ispirata all'atmosfera di un warehouse party:
 - [x] Risoluzione mDNS sequenziale (workaround bug Android NSD)
 - [x] WiFi Multicast Lock per Android vecchi
 
-### v1.3 - Stabilità (In Progress)
+### v1.3 - iOS Full Support + QR Code ✅
+- [x] **iOS native modules** (Objective-C): WebSocket server, Bonjour discovery, BLE advertising
+- [x] **Expo config plugin** per injection automatica moduli nativi iOS
+- [x] **TestFlight distribution** via EAS Build
+- [x] **QR Code sharing**: host genera QR con deep link + credenziali Wi-Fi
+- [x] **QR Scanner**: scansione QR da "Find Rooms" per join diretto
+- [x] **Native file write** (`writeBase64ToFile`): scrittura binaria affidabile su iOS
+- [x] **Audio session management**: riconfigurazione automatica su iOS
+- [x] **Content disclaimer**: checkbox al primo avvio + nota nella home
+- [x] **Signed Android APK**: distribuzione facilitata
+
+### v1.4 - Stabilità (In Progress)
 - [ ] Resume trasferimenti interrotti
 - [ ] Notifiche push locali
 - [ ] Migliorare discovery su Android vecchi (UDP broadcast fallback)

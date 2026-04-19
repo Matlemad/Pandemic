@@ -139,11 +139,15 @@ rm -rf node_modules && npm install
 
 ### ✅ Funziona
 - UI completa e navigazione
-- Libreria audio locale + import
+- Libreria audio locale + import + playback
 - Discovery BLE (device fisico)
 - Phone Host Mode (stanza da telefono)
 - Venue Host (cross-platform via Wi-Fi)
 - Trasferimenti reali via WebSocket/LAN
+- **iOS full support** (moduli nativi, TestFlight)
+- **Android APK firmato** per distribuzione
+- **QR Code** per join diretto a room
+- Content disclaimer al primo avvio
 
 ### ⚠️ Limitazioni
 - BLE e discovery richiedono device fisico

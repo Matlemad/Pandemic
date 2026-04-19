@@ -387,6 +387,9 @@ export default function HomeScreen() {
             Offline-first • Locale • Peer-to-peer
           </Text>
           <Text style={styles.version}>v1.0.0</Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://pandemic.buzz')}>
+            <Text style={styles.privacyLink}>Privacy Policy</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -646,6 +649,13 @@ const styles = StyleSheet.create({
   version: {
     fontSize: Typography.sizes.xs,
     color: Colors.textMuted,
+  },
+
+  privacyLink: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    marginTop: Spacing.sm,
+    textDecorationLine: 'underline',
   },
 
   disclaimerOverlay: {

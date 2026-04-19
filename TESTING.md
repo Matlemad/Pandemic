@@ -367,5 +367,47 @@ npx tsc --noEmit --fix
 
 ---
 
-*Ultimo aggiornamento: 2026-01-23*
+### Test 8: QR Code Join
+
+**Obiettivo:** Testare join via QR code
+
+**Passi:**
+
+**Device A (Host):**
+1. Crea LAN Room
+2. QR code appare automaticamente sotto la room attiva
+
+**Device B (Guest):**
+1. Vai su "Trova Stanze"
+2. Tap "Scan QR Code"
+3. Scansiona il QR del Device A
+4. Verifica connessione alla room
+
+**Risultato atteso:**
+- QR contiene deep link `pandemic://join?...`
+- Scanner riconosce il QR e si connette
+- Se hotspot mode, mostra credenziali Wi-Fi
+
+---
+
+### Test 9: Content Disclaimer
+
+**Obiettivo:** Verificare disclaimer al primo avvio
+
+**Passi:**
+1. Installa l'app (prima volta)
+2. Apri l'app
+3. Verifica modal con checkbox
+4. Prova a premere "Continue" senza checkbox → disabilitato
+5. Seleziona checkbox → "Continue" si abilita
+6. Tap "Continue"
+7. Chiudi e riapri l'app → disclaimer NON riappare
+
+**Risultato atteso:**
+- Modal appare solo al primo avvio
+- Testo disclaimer visibile nella home sotto il subtitle
+
+---
+
+*Ultimo aggiornamento: 2026-04-16*
 

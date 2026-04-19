@@ -3,7 +3,8 @@
 ## 📦 Contenuto Release
 
 Questa release include:
-- **📱 App Android** (APK installabile)
+- **📱 App Android** (APK firmato installabile)
+- **🍎 App iOS** (TestFlight via App Store Connect)
 - **🖥️ Venue Host** (Eseguibili standalone per Mac/Windows/Linux)
 
 ---
@@ -38,6 +39,31 @@ Questa release include:
 
 - **Android 10-11**: La discovery automatica può essere intermittente. Usa **"Connessione Manuale"** o **Hotspot Mode** come workaround.
 - Vedi [ANDROID_DISCOVERY_ISSUES.md](./ANDROID_DISCOVERY_ISSUES.md) per dettagli tecnici.
+
+---
+
+## 🍎 iOS App (TestFlight)
+
+### Installazione
+
+1. Il tester riceve un invito email da TestFlight
+2. Installa l'app **TestFlight** da App Store
+3. Apri il link dall'email → l'app si installa automaticamente
+
+### Requisiti
+
+- iPhone con iOS 15+
+- Account Apple (per TestFlight)
+
+### Funzionalità
+
+- ✅ **Phone Host Mode**: Crea stanze LAN (WebSocket server via Network.framework)
+- ✅ **Bonjour Discovery**: Trova stanze automaticamente sulla rete locale
+- ✅ **BLE Discovery**: Trova stanze via Bluetooth (CoreBluetooth)
+- ✅ **File Sharing**: Condividi e scarica file audio
+- ✅ **Audio Library**: Playback e gestione file locali
+- ✅ **QR Code**: Scansiona QR per join diretto
+- ✅ **Content Disclaimer**: Conferma diritti al primo avvio
 
 ---
 
@@ -181,6 +207,18 @@ Windows potrebbe bloccare l'eseguibile. Clicca **"Altre informazioni"** → **"E
 
 ## 🔄 Changelog
 
+### v1.3.0
+
+- ✅ **iOS Full Support**: moduli nativi Objective-C (WebSocket server, Bonjour, BLE)
+- ✅ **TestFlight distribution**: build e submit via EAS
+- ✅ **QR Code sharing**: genera QR con deep link per join diretto
+- ✅ **QR Scanner**: scansione in-app da "Find Rooms"
+- ✅ **Native file write**: scrittura binaria affidabile su iOS (`writeBase64ToFile`)
+- ✅ **Audio session**: riconfigurazione automatica prima di ogni play su iOS
+- ✅ **Content disclaimer**: checkbox al primo avvio
+- ✅ **Signed Android APK**: APK firmato per distribuzione
+- ✅ **File extension fix**: aggiunta automatica estensione audio per compatibilità iOS
+
 ### v1.2.0
 
 - ✅ Phone Host Mode: Crea stanze LAN direttamente dal telefono
@@ -188,11 +226,10 @@ Windows potrebbe bloccare l'eseguibile. Clicca **"Altre informazioni"** → **"E
 - ✅ Auto-reconnect WebSocket con exponential backoff
 - ✅ Risoluzione mDNS sequenziale (workaround bug Android NSD)
 - ✅ WiFi Multicast Lock per Android vecchi
-- ✅ Fix discovery fermata continuamente (bug useEffect)
 - ✅ Venue Host eseguibile standalone (no Node.js richiesto)
 - ✅ Dashboard web integrata nel venue host
 
 ---
 
-**Versione**: vX.Y.Z  
-**Data**: YYYY-MM-DD
+**Versione**: v1.3.0  
+**Data**: 2026-04-16
