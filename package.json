@@ -18,7 +18,7 @@
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@types/uuid": "^10.0.0",
-    "expo": "~54.0.30",
+    "expo": "~54.0.33",
     "expo-av": "^16.0.8",
     "expo-camera": "~17.0.10",
     "expo-clipboard": "~8.0.8",
@@ -29,7 +29,7 @@
     "expo-linking": "^8.0.11",
     "expo-media-library": "^18.2.1",
     "expo-network": "^8.0.8",
-    "expo-router": "^6.0.21",
+    "expo-router": "~6.0.23",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
     "react-native": "0.81.5",
@@ -38,7 +38,7 @@
     "react-native-qrcode-svg": "^6.3.21",
     "react-native-safe-area-context": "^5.6.2",
     "react-native-screens": "~4.16.0",
-    "react-native-svg": "^15.15.1",
+    "react-native-svg": "15.12.1",
     "uuid": "^13.0.0",
     "zustand": "^5.0.9"
   },

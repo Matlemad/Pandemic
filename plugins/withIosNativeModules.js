@@ -25,6 +25,8 @@ const SOURCE_FILES = [
   'BleAdvertisingModule.m',
 ];
 
+// PrivacyInfo.xcprivacy is handled by Expo via app.json "privacyManifests"
+
 function withIosNativeModules(config) {
   // Step 1: Copy source files into ios/<ProjectName>/
   config = withDangerousMod(config, [

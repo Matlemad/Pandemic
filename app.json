@@ -16,12 +16,32 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "digital.yomi.pandemic",
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": ["C617.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryDiskSpace",
+            "NSPrivacyAccessedAPITypeReasons": ["E174.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
+            "NSPrivacyAccessedAPITypeReasons": ["35F9.1"]
+          }
+        ]
+      },
       "infoPlist": {
-        "NSBluetoothAlwaysUsageDescription": "Pandemic usa Bluetooth per scoprire e connettersi a dispositivi vicini",
-        "NSBluetoothPeripheralUsageDescription": "Pandemic usa Bluetooth per scoprire e connettersi a dispositivi vicini",
-        "NSLocalNetworkUsageDescription": "Pandemic usa la rete locale per trasferire file audio",
-        "NSPhotoLibraryUsageDescription": "Pandemic accede alla libreria per importare file audio",
-        "NSCameraUsageDescription": "Pandemic usa la fotocamera per scansionare QR code di connessione",
+        "NSBluetoothAlwaysUsageDescription": "Pandemic uses Bluetooth to discover and connect to nearby devices for local audio sharing.",
+        "NSBluetoothPeripheralUsageDescription": "Pandemic uses Bluetooth to create and discover nearby audio sharing rooms.",
+        "NSLocalNetworkUsageDescription": "Pandemic uses the local network to connect to nearby rooms and transfer audio files.",
+        "NSPhotoLibraryUsageDescription": "Pandemic uses your media library to import audio files you choose to share.",
+        "NSCameraUsageDescription": "Pandemic uses the camera to scan QR codes for joining local audio sharing rooms.",
         "ITSAppUsesNonExemptEncryption": false,
         "NSBonjourServices": [
           "_audiowallet._tcp"
@@ -29,7 +49,7 @@
       }
     },
     "android": {
-      "package": "com.pandemic.app",
+      "package": "com.pandemic.music",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A0A0B"
@@ -65,16 +85,16 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Pandemic usa la fotocamera per scansionare QR code di connessione"
+          "cameraPermission": "Pandemic uses the camera to scan QR codes for joining local audio sharing rooms."
         }
       ],
       [
         "expo-media-library",
         {
-          "photosPermission": "Consenti a Pandemic di accedere ai file audio",
-          "savePhotosPermission": "Consenti a Pandemic di salvare file audio",
+          "photosPermission": "Pandemic uses your media library to import audio files you choose to share.",
+          "savePhotosPermission": "Pandemic saves downloaded audio files to your local library.",
           "isAccessMediaLocationEnabled": true,
-          "audioPermission": "Consenti a Pandemic di accedere ai file audio"
+          "audioPermission": "Pandemic accesses your audio files for local sharing."
         }
       ],
       [
